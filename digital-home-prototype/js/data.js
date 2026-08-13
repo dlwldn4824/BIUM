@@ -30,11 +30,12 @@ window.DigitalHomeData = {
     { id: "duplicate", label: "완전 동일", icon: "⧉", gb: 0.8, count: 3 },
     { id: "similar-photos", label: "비슷한 사진", icon: "🖼", gb: 0.04, count: 8 },
     { id: "similar-docs", label: "비슷한 문서 (재확인)", icon: "📄", gb: 0, count: 4 },
+    { id: "cold-stale", label: "오래 안 씀 · 잠재우기", icon: "☾", gb: 36.4, count: 8291 },
     { id: "mail", label: "스팸·오래된 안읽음", icon: "✉", gb: 2.8, count: 1630 },
   ],
   /** Populated when Gmail is connected */
   mailCleanup: null,
-  /** 3-tier similarity candidates (exact synced with duplicate) */
+  /** Lifecycle candidates: exact → similar → review → cold hibernate */
   candidates: {
     exact: { groups: [] },
     similarPhotos: {
@@ -87,6 +88,53 @@ window.DigitalHomeData = {
             { name: "CHIC_발표_최종.pptx", place: "MacBook / Documents", size: "13MB", modified: "2026-07-18" },
             { name: "CHIC_발표_진짜최종.pptx", place: "Desktop / Documents", size: "14MB", modified: "2026-08-01" },
             { name: "CHIC_발표_수정본.pptx", place: "Google Drive / 학교", size: "13MB", modified: "2026-07-22" },
+          ],
+        },
+      ],
+    },
+    coldStale: {
+      groups: [
+        {
+          id: "cold-drive-jeju-2018",
+          kind: "stale",
+          confidence: "cold",
+          title: "여행 사진 · 오래 안 연 폴더",
+          reason:
+            "이 폴더, 2년 8개월 동안 열지 않았어요. 삭제하기 불안하다면 잠재우기로 보관할까요?",
+          idleLabel: "2년 8개월",
+          count: 8291,
+          reclaimBytes: 39093780480,
+          place: "Google Drive / 여행/제주_2018",
+          actions: ["leave", "hibernate", "clean"],
+          carbonDefer: true,
+          explain:
+            "2년 8개월 동안 거의 쓰지 않은 데이터 8,291개(36.4GB)예요. 지우지 않고 잠재우면 저빈도 보관으로 옮길 수 있어요.",
+          files: [
+            {
+              name: "제주_2018 (폴더)",
+              place: "Google Drive / 여행",
+              size: "36.4GB",
+              lastOpened: "2023-11-02",
+              itemCount: 8291,
+            },
+            {
+              name: "IMG_1042.JPG",
+              place: "Google Drive / 여행/제주_2018",
+              size: "4.8MB",
+              lastOpened: "2023-11-02",
+            },
+            {
+              name: "IMG_1888.JPG",
+              place: "Google Drive / 여행/제주_2018",
+              size: "5.1MB",
+              lastOpened: "2023-11-02",
+            },
+            {
+              name: "드론_일몰.mp4",
+              place: "Google Drive / 여행/제주_2018",
+              size: "1.2GB",
+              lastOpened: "2023-10-18",
+            },
           ],
         },
       ],

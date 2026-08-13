@@ -38,7 +38,8 @@
       "!**/_*.png"
     ],
     "asarUnpack": [
-      "vendor/bin/**/*"
+      "vendor/bin/**/*",
+      "assets/icons/**/*"
     ],
     "mac": {
       "category": "public.app-category.utilities",

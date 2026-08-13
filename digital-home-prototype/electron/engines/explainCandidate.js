@@ -32,6 +32,12 @@ function stubExplain(group) {
     const n = group.files?.length || group.count || 0;
     return `이름은 다르지만 내용이 완전히 같은 파일 ${n}개예요. 로컬 Desktop에 하나만 남기면 클라우드 복제를 줄일 수 있어요.`;
   }
+  if (group.kind === "stale" || group.kind === "cold" || group.kind === "hibernate") {
+    const idle = group.idleLabel || "오래";
+    const n = group.count || group.files?.length || 0;
+    const reclaim = formatBytes(group.reclaimBytes);
+    return `${idle} 동안 거의 쓰지 않은 데이터 ${n.toLocaleString?.() || n}개(${reclaim})예요. 지우지 않고 잠재우면 저빈도 보관으로 옮길 수 있어요.`;
+  }
   return group.reason || "";
 }
 

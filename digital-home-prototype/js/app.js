@@ -496,24 +496,25 @@
     openModal(
       `
       <div class="util-sheet">
+        <p class="util-tier-badge util-tier-cold">절감 효과</p>
         <h3 class="util-sheet-title">정리하면</h3>
         <p class="util-sheet-lead">
           후보 <strong>${impact.gb}GB</strong>를 비웠을 때 기대할 수 있는 효과예요
         </p>
         <ul class="util-find-list">
-          <li class="util-find-row">
+          <li class="util-find-row util-impact-row">
             <div class="util-find-main">
               <strong>예상 탄소 절감</strong>
-              <small>클라우드에 방치된 데이터를 줄일 때 · 연간 추정</small>
+              <small>클라우드 방치 데이터 감소 · 연간 추정</small>
             </div>
-            <span class="util-find-size">약 ${impact.carbonLabel}/년</span>
+            <span class="util-find-size util-impact-num">약 ${impact.carbonLabel}/년</span>
           </li>
-          <li class="util-find-row">
+          <li class="util-find-row util-impact-row">
             <div class="util-find-main">
               <strong>사회적 절감 비용</strong>
-              <small>구독·용량 부담을 완화할 수 있는 규모 · 연간 추정</small>
+              <small>구독·용량 부담 완화 규모 · 연간 추정</small>
             </div>
-            <span class="util-find-size">약 ${impact.savingLabel}/년</span>
+            <span class="util-find-size util-impact-num">약 ${impact.savingLabel}/년</span>
           </li>
         </ul>
         <p class="util-sheet-note">
@@ -599,15 +600,23 @@
     return data.candidates?.similarDocs?.groups || [];
   }
 
+  function coldGroups() {
+    return data.candidates?.coldStale?.groups || [];
+  }
+
   function applyCandidates(candidates) {
     if (!candidates || !data) return;
     data.candidates = {
       exact: candidates.exact || data.candidates?.exact || { groups: [] },
       similarPhotos: candidates.similarPhotos || { groups: [] },
       similarDocs: candidates.similarDocs || { groups: [] },
+      coldStale:
+        candidates.coldStale ||
+        data.candidates?.coldStale || { groups: [] },
     };
     const photos = photoGroups();
     const docs = docGroups();
+    const colds = coldGroups();
     const findPhoto = data.finds?.find((f) => f.id === "similar-photos");
     if (findPhoto && photos[0]) {
       findPhoto.count = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
@@ -619,6 +628,18 @@
     const findDoc = data.finds?.find((f) => f.id === "similar-docs");
     if (findDoc && docs[0]) {
       findDoc.count = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    }
+    const findCold = data.finds?.find((f) => f.id === "cold-stale");
+    if (findCold && colds[0]) {
+      findCold.count = colds.reduce(
+        (s, g) => s + (g.count || g.files?.length || 0),
+        0
+      );
+      findCold.gb = +(
+        colds.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
+        1024 ** 3
+      ).toFixed(1);
+      findCold.label = "오래 안 씀 · 잠재우기";
     }
     renderFinds();
     window.BiumMini?.fillStats?.();
@@ -730,15 +751,90 @@
     );
   }
 
+  function openHibernateModal(groupId) {
+    const groups = coldGroups();
+    const group =
+      groups.find((g) => g.id === groupId) || groups[0] || null;
+    if (!group) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">잠재우기</h3>
+          <p class="util-sheet-note">오래 안 쓴 데이터 후보가 아직 없어요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+    const gb = (Number(group.reclaimBytes) || 0) / 1024 ** 3;
+    const impact = estimateCleanupImpact(gb);
+    const countLabel = (group.count || group.files?.length || 0).toLocaleString();
+    const rows = (group.files || [])
+      .slice(0, 6)
+      .map(
+        (f) => `
+      <li class="util-find-row">
+        <div class="util-find-main">
+          <strong>${escapeHtml(f.name)}</strong>
+          <small>${escapeHtml(f.place || "")}${
+            f.lastOpened ? ` · 마지막 ${escapeHtml(f.lastOpened)}` : ""
+          }</small>
+        </div>
+        <span class="util-find-size">${escapeHtml(f.size || "")}</span>
+      </li>`
+      )
+      .join("");
+    openModal(
+      `
+      <div class="util-sheet">
+        <p class="util-tier-badge util-tier-cold">오래 안 씀 · 잠재우기</p>
+        <h3 class="util-sheet-title">${escapeHtml(group.title || "오래 안 쓴 데이터")}</h3>
+        <p class="util-sheet-lead">${escapeHtml(
+          group.reason ||
+            "오래 열지 않은 데이터예요. 지우기 불안하면 잠재워 둘까요?"
+        )}</p>
+        <p class="util-sheet-note util-cold-meta">
+          <strong>${formatReclaim(group.reclaimBytes)}</strong>
+          · ${escapeHtml(group.place || "클라우드")}
+          · ${countLabel}개
+          ${group.idleLabel ? ` · ${escapeHtml(group.idleLabel)}` : ""}
+        </p>
+        <ul class="util-find-list">${rows}</ul>
+        ${
+          group.explain
+            ? `<p class="util-sheet-note">${escapeHtml(group.explain)}</p>`
+            : ""
+        }
+        <p class="util-sheet-note">
+          잠재우면 Standard 대신 저빈도 보관으로 분류해요.
+          급하지 않은 이동은 <strong>전력이 더 친환경적인 시간</strong>에 처리할 수 있어요.
+          (연간 추정 여지 약 ${impact.carbonLabel})
+        </p>
+        <div class="util-sheet-actions util-cold-actions">
+          <button class="util-sheet-ghost" data-action="cold-leave" type="button">그대로 두기</button>
+          <button class="util-sheet-close" data-action="cold-hibernate" type="button">잠재우기</button>
+          <button class="util-sheet-ghost" data-action="cold-clean" type="button">정리하기</button>
+          <button class="util-sheet-ghost" data-action="open-findings-hub" type="button">뒤로</button>
+        </div>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
   function openFindingsHub() {
     const hasDup = (data.duplicate?.files?.length || 0) >= 2;
     const photos = photoGroups();
     const docs = docGroups();
+    const colds = coldGroups();
     const hasPhotos = photos.length > 0;
     const hasDocs = docs.length > 0;
+    const hasCold = colds.length > 0;
     const hasMail = !!(data.mailCleanup?.groups?.length);
 
-    if (!hasDup && !hasPhotos && !hasDocs && !hasMail) {
+    if (!hasDup && !hasPhotos && !hasDocs && !hasCold && !hasMail) {
       openModal(
         `
         <div class="util-sheet">
@@ -755,6 +851,14 @@
     const dupN = hasDup ? data.duplicate.files.length : 0;
     const photoN = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
     const docN = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    const coldGb = +(
+      colds.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
+      1024 ** 3
+    ).toFixed(1);
+    const coldN = colds.reduce(
+      (s, g) => s + (g.count || g.files?.length || 0),
+      0
+    );
     const mailN = hasMail
       ? data.mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0)
       : 0;
@@ -793,6 +897,17 @@
             <span class="util-check" aria-hidden="true"></span>
           </button>`
         : "",
+      hasCold
+        ? `
+          <button class="util-option" type="button" data-action="open-cold-find">
+            <span class="util-option-ico" aria-hidden="true">☾</span>
+            <span class="util-option-text">
+              <strong>라이프사이클 · 잠재우기</strong>
+              <small>${coldGb}GB · ${coldN.toLocaleString()}개 · 지우지 않고 보관</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>`
+        : "",
       hasMail
         ? `
           <button class="util-option" type="button" data-action="open-mail-find">
@@ -812,7 +927,7 @@
       `
       <div class="util-sheet">
         <h3 class="util-sheet-title">발견한 항목</h3>
-        <p class="util-sheet-lead">확실함 → 높은 유사도 → 재확인 순으로 정리해요</p>
+        <p class="util-sheet-lead">확실함 → 유사 → 재확인 → 잠재우기 순으로 골라요</p>
         <div class="util-options">${options}</div>
         <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
       </div>
@@ -832,6 +947,10 @@
     }
     if (kind === "similar-docs" || kind === "docs") {
       openDocReviewModal();
+      return;
+    }
+    if (kind === "cold-stale" || kind === "stale" || kind === "hibernate") {
+      openHibernateModal();
       return;
     }
     if (kind === "duplicate") {
@@ -995,8 +1114,34 @@
       openDocReviewModal();
       return;
     }
+    if (action === "open-cold-find") {
+      openHibernateModal();
+      return;
+    }
     if (action === "open-findings-hub") {
       openFindingsHub();
+      return;
+    }
+    if (action === "cold-leave") {
+      window.BiumMini?.setAgent?.("🐾 그대로 둘게. 필요할 때 다시 볼게");
+      closeModal();
+      resumeHomeChrome();
+      return;
+    }
+    if (action === "cold-hibernate") {
+      window.BiumMini?.setAgent?.(
+        "🐾 잠재워 둘게. 급하지 않아서 저탄소 시간에 옮길게"
+      );
+      closeModal();
+      resumeHomeChrome();
+      return;
+    }
+    if (action === "cold-clean") {
+      window.BiumMini?.setAgent?.(
+        "🐾 정리 후보로 표시해 둘게. 지우기 전에 한 번 더 확인하자"
+      );
+      closeModal();
+      resumeHomeChrome();
       return;
     }
     if (action === "photo-keep") {
@@ -1347,6 +1492,7 @@
     applyCandidates,
     openPhotoStackModal,
     openDocReviewModal,
+    openHibernateModal,
     openDuplicatesFromMini: () => {
       // Keep Mini open — show which files are duplicates
       openDuplicateModal();

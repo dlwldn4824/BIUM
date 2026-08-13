@@ -13,7 +13,7 @@ let state = {
   status: "idle",
   foundCount: 0,
   label: "집에서 쉬는 중",
-  title: "",
+  title: "BIUM",
 };
 
 function snapshot() {
@@ -21,10 +21,11 @@ function snapshot() {
 }
 
 function titleFor(status, foundCount) {
-  if (status === "scanning") return "•";
-  if (status === "found") return String(Math.min(Math.max(foundCount, 1), 9));
-  if (status === "error") return "!";
-  return "";
+  // ASCII "BIUM" is the most reliable macOS menu-bar label.
+  if (status === "scanning") return "BIUM ·";
+  if (status === "found") return `BIUM ${Math.min(Math.max(foundCount, 1), 9)}`;
+  if (status === "error") return "BIUM !";
+  return "BIUM";
 }
 
 /**

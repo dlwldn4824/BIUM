@@ -72,6 +72,7 @@ window.BiumMini = (() => {
     if ((data?.duplicate?.files?.length || 0) >= 2) n += 1;
     n += data?.candidates?.similarPhotos?.groups?.length || 0;
     n += data?.candidates?.similarDocs?.groups?.length || 0;
+    n += data?.candidates?.coldStale?.groups?.length || 0;
     if (data?.mailCleanup?.groups?.length) n += 1;
     return n;
   }
@@ -91,7 +92,7 @@ window.BiumMini = (() => {
     btn.setAttribute("aria-disabled", on ? "false" : "true");
     btn.classList.toggle("is-live", on);
     btn.title = on
-      ? "눌러서 완전 동일·비슷한 사진·문서 보기"
+      ? "눌러서 동일·유사·잠재우기 후보 보기"
       : "아직 발견한 항목이 없어요";
   }
 
@@ -371,9 +372,53 @@ window.BiumMini = (() => {
   function openCleanableImpact() {
     if (window.BiumApp?.openCleanableImpactFromMini) {
       window.BiumApp.openCleanableImpactFromMini();
+      setStatus("🐾 정리하면 탄소·비용 부담을 줄일 수 있어요");
       return;
     }
-    setStatus("🐾 정리하면 탄소·비용 부담을 줄일 수 있어요");
+    // Fallback if app.js not ready — still show numbers
+    const gb = Number(window.DigitalHomeData?.summary?.cleanableGb ?? 8.7) || 0;
+    const carbonKg = gb * 0.04;
+    const carbonLabel =
+      carbonKg >= 1
+        ? `${carbonKg.toFixed(1)} kgCO₂e`
+        : `${Math.round(carbonKg * 1000)} gCO₂e`;
+    const savingKrw = Math.round(
+      (gb / 8.7) * (window.DigitalHomeData?.summary?.savingKrw || 36000)
+    );
+    const layer = $("modalLayer");
+    const root = $("modalRoot");
+    if (layer && root) {
+      root.classList.add("is-util");
+      root.innerHTML = `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">정리하면</h3>
+          <p class="util-sheet-lead">후보 <strong>${gb}GB</strong>를 비웠을 때</p>
+          <ul class="util-find-list">
+            <li class="util-find-row">
+              <div class="util-find-main">
+                <strong>예상 탄소 절감</strong>
+                <small>연간 추정</small>
+              </div>
+              <span class="util-find-size">약 ${carbonLabel}/년</span>
+            </li>
+            <li class="util-find-row">
+              <div class="util-find-main">
+                <strong>사회적 절감 비용</strong>
+                <small>연간 추정</small>
+              </div>
+              <span class="util-find-size">약 ${savingKrw.toLocaleString()}원/년</span>
+            </li>
+          </ul>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>`;
+      layer.classList.remove("hidden");
+      root.querySelector("[data-action=close]")?.addEventListener("click", () => {
+        layer.classList.add("hidden");
+        root.classList.remove("is-util");
+        root.innerHTML = "";
+      });
+    }
+    setStatus(`🐾 약 ${carbonLabel}/년 · ${savingKrw.toLocaleString()}원/년`);
   }
 
   async function remountPet() {

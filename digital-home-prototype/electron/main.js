@@ -7,6 +7,7 @@ const {
   screen,
   ipcMain,
 } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const { resolveBinary } = require("./localAgent");
 const { runFederatedScan, spacesFromIndex, ensureDevices } = require("./orchestrator");
@@ -23,6 +24,25 @@ app.setName("BIUM");
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
+}
+
+// Menu-bar utility (Cursor-style): must be accessory BEFORE ready.
+// "regular" / late dock.hide() leaves BIUM in the Dock and can hide the tray.
+if (process.platform === "darwin") {
+  try {
+    app.setActivationPolicy("accessory");
+  } catch {
+    /* older Electron */
+  }
+}
+
+function hideDockIcon() {
+  if (process.platform !== "darwin" || !app.dock) return;
+  try {
+    app.dock.hide();
+  } catch {
+    /* ignore */
+  }
 }
 
 /** @type {BrowserWindow | null} */
@@ -49,6 +69,19 @@ function root(...parts) {
   return path.join(__dirname, "..", ...parts);
 }
 
+/** Prefer asar.unpacked icons so Retina @2x templates load reliably. */
+function assetFile(...parts) {
+  if (app.isPackaged) {
+    const unpacked = path.join(
+      process.resourcesPath,
+      "app.asar.unpacked",
+      ...parts
+    );
+    if (fs.existsSync(unpacked)) return unpacked;
+  }
+  return root(...parts);
+}
+
 function broadcast(channel, payload) {
   for (const w of BrowserWindow.getAllWindows()) {
     try {
@@ -60,26 +93,32 @@ function broadcast(channel, payload) {
 }
 
 function createTrayIcon() {
-  // Prefer template house icon (macOS menu bar monochrome)
+  // Prefer black+alpha *Template.png (macOS tints it for light/dark menu bars).
   const candidates = [
-    root("assets", "icons", "trayTemplate.png"),
-    root("assets", "icons", "tray.png"),
-    root("assets", "icons", "house.png"),
+    assetFile("assets", "icons", "trayTemplate.png"),
+    assetFile("assets", "icons", "tray.png"),
     root("build", "trayTemplate.png"),
     root("build", "tray.png"),
+    assetFile("assets", "icons", "house.png"),
   ];
 
   for (const file of candidates) {
     try {
+      if (!fs.existsSync(file)) continue;
+      // Path load picks up trayTemplate@2x.png on Retina; buffer is asar fallback.
       let image = nativeImage.createFromPath(file);
-      if (image.isEmpty()) continue;
-      if (/Template\.png$/i.test(file)) {
-        image.setTemplateImage(true);
+      if (image.isEmpty()) {
+        image = nativeImage.createFromBuffer(fs.readFileSync(file));
       }
+      if (image.isEmpty()) continue;
+
+      const isTemplate = /Template/i.test(path.basename(file));
+      if (isTemplate) image.setTemplateImage(true);
+
       const size = image.getSize();
       if (size.width > 22 || size.height > 22) {
         image = image.resize({ width: 18, height: 18, quality: "best" });
-        if (/Template/i.test(file)) image.setTemplateImage(true);
+        if (isTemplate) image.setTemplateImage(true);
       }
       return image;
     } catch {
@@ -191,6 +230,7 @@ function showWindow() {
   else if (displayMode === "home") applyHomeBounds();
   win?.show();
   win?.focus();
+  hideDockIcon();
 }
 
 function ensurePet() {
@@ -299,6 +339,7 @@ async function runDesktopPetScan(options = {}) {
     candidates: out?.scan?.candidates || out?.scan?.result?.candidates,
     similarPhotos: out?.scan?.similarPhotos,
     similarDocs: out?.scan?.similarDocs,
+    coldStale: out?.scan?.coldStale,
     result: out?.scan?.result,
     desktopPet: isDesktopPetEnabled(),
   };
@@ -352,12 +393,72 @@ async function summonPetHome(source = "ui") {
   return snap;
 }
 
+let trayListenersBound = false;
+
+function destroyTray() {
+  if (!tray) return;
+  try {
+    tray.destroy();
+  } catch {
+    /* ignore */
+  }
+  tray = null;
+}
+
+function logTrayBounds(tag) {
+  if (!tray) return;
+  try {
+    const bounds = tray.getBounds();
+    const line = JSON.stringify({
+      tag,
+      at: new Date().toISOString(),
+      bounds,
+      title: trayState.snapshot().title,
+    });
+    console.log("[BIUM tray]", line);
+    fs.writeFileSync("/tmp/bium-tray.json", line);
+  } catch (err) {
+    console.warn("[BIUM tray] bounds failed", err.message);
+  }
+}
+
 function createTray() {
-  tray = new Tray(createTrayIcon());
+  destroyTray();
+  const icon = createTrayIcon();
+  if (icon.isEmpty()) {
+    console.error("[BIUM tray] icon empty — status item may not appear");
+  }
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+
+  // ASCII title is the most reliable menu-bar label on macOS.
+  try {
+    tray.setTitle("BIUM");
+    tray.setToolTip("BIUM · 클릭해서 열기");
+  } catch {
+    /* ignore */
+  }
+
+  // Prefer a position near the clock (higher = further left of system items).
+  try {
+    app.setAppUserModelId?.("com.chic.bium.home");
+  } catch {
+    /* ignore */
+  }
+
   trayState.setIdle();
   applyTrayPresentation();
-  trayState.onChange(() => applyTrayPresentation());
-  petLocation.onChange(() => applyTrayPresentation());
+  // Force title again after state apply (idle → 비움)
+  try {
+    tray.setTitle(trayState.snapshot().title || "BIUM");
+  } catch {
+    /* ignore */
+  }
+
+  if (!trayListenersBound) {
+    trayListenersBound = true;
+    trayState.onChange(() => applyTrayPresentation());
+    petLocation.onChange(() => applyTrayPresentation());
+  }
 
   // Left-click → toggle compact popover under menu bar
   tray.on("click", () => {
@@ -369,7 +470,16 @@ function createTray() {
     }
   });
 
+  // Right-click menu only — left click stays for toggle (macOS)
   const menu = Menu.buildFromTemplate([
+    {
+      label: "열기",
+      click: () => {
+        applyDisplayMode("mini");
+        win?.webContents.send("bium:display-mode", "mini");
+        showWindow();
+      },
+    },
     {
       label: "탐색 시작",
       click: () => {
@@ -400,30 +510,76 @@ function createTray() {
       },
     },
   ]);
-  tray.setContextMenu(menu);
+  // On macOS, setContextMenu steals left-click. Keep menu for right-click via
+  // platform behavior: use tray.setContextMenu only on non-darwin, or bind open.
+  if (process.platform === "darwin") {
+    tray.on("right-click", () => {
+      tray.popUpContextMenu(menu);
+    });
+  } else {
+    tray.setContextMenu(menu);
+  }
+
+  logTrayBounds("create");
+}
+
+function ensureTrayVisible() {
+  hideDockIcon();
+  if (!tray) {
+    createTray();
+    return;
+  }
+  applyTrayPresentation();
+  logTrayBounds("ensure");
+  const bounds = tray.getBounds();
+  // Menu bar items report y≈0 once laid out. Zero width → recreate.
+  if (!bounds?.width) {
+    console.warn("[BIUM tray] recreating — zero width", bounds);
+    createTray();
+    logTrayBounds("recreate");
+  }
 }
 
 app.whenReady().then(() => {
-  // Menu-bar utility: hide Dock icon when possible (also LSUIElement in Info.plist)
-  if (process.platform === "darwin" && app.dock) {
-    try {
-      app.dock.hide();
-    } catch {
-      /* ignore */
-    }
+  hideDockIcon();
+  // Keep status item on the RIGHT (near clock). Large preferred-position
+  // values push it left under the MacBook notch where it disappears.
+  try {
+    const { execFileSync } = require("child_process");
+    execFileSync(
+      "defaults",
+      [
+        "write",
+        "com.chic.bium.home",
+        "NSStatusItem Preferred Position Item-0",
+        "-float",
+        "40",
+      ],
+      { stdio: "ignore" }
+    );
+  } catch {
+    /* ignore */
   }
 
-  createPanelWindow();
   createTray();
+  createPanelWindow();
   ensureDevices();
-  ensurePet();
-  // Pet overlay follows settings preference; popover opens only from tray click
-  if (isDesktopPetEnabled()) {
-    pet.setVisible(true);
-    pet.sleepInCorner();
-  } else {
-    pet.setVisible(false);
-  }
+  // Defer pet — panel windows were logging styleMask errors and can race tray.
+  setTimeout(() => {
+    ensurePet();
+    if (isDesktopPetEnabled()) {
+      pet.setVisible(true);
+      pet.sleepInCorner();
+    } else {
+      pet.setVisible(false);
+    }
+    ensureTrayVisible();
+  }, 600);
+
+  hideDockIcon();
+  setTimeout(hideDockIcon, 400);
+  setTimeout(ensureTrayVisible, 1500);
+  setTimeout(ensureTrayVisible, 3000);
 
   lanPeer
     .start({ alias: osHostname() })

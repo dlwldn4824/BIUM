@@ -77,8 +77,8 @@ class DesktopPetController {
       acceptFirstMouse: true,
       roundedCorners: false,
       thickFrame: false,
-      // panel floats above normal apps on macOS
-      type: process.platform === "darwin" ? "panel" : "toolbar",
+      // Avoid type:"panel" — breaks on some Electron/macOS builds
+      // ("NSWindow does not support nonactivating panel styleMask").
       backgroundColor: "#00000000",
       title: "BIUM Pet",
       webPreferences: {

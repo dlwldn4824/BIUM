@@ -27,6 +27,7 @@ const {
 } = require("./peers/gmailDemo");
 const similarPhotos = require("./engines/similarPhotos");
 const similarDocs = require("./engines/similarDocs");
+const coldStale = require("./engines/coldStale");
 
 function emit(send, payload) {
   if (typeof send === "function") send(payload);
@@ -471,15 +472,23 @@ async function runFederatedScan(options = {}) {
     });
   }
 
-  // ---- 6) Similarity tiers (photo stacks + doc review candidates) ----
+  // ---- 6) Similarity + cold lifecycle (deferrable / carbon-aware work) ----
+  emit(send, {
+    phase: "search",
+    room: "cloud",
+    agent: "gdrive",
+    text: "급하지 않은 분석이라 저탄소 시간에 맞춰 분류할게요...",
+  });
+  await wait(420);
   emit(send, {
     phase: "search",
     room: "laptop",
     agent: "mac-local",
-    text: "비슷한 사진·문서 묶음 살펴보는 중...",
+    text: "비슷한 사진·문서·오래 안 쓴 데이터 살펴보는 중...",
   });
   let photoOut = { groups: [], pile: null, reclaimBytes: 0 };
   let docOut = { groups: [], pile: null };
+  let coldOut = { groups: [], pile: null, reclaimBytes: 0 };
   try {
     photoOut = await similarPhotos.build({ useFixture: true });
   } catch (err) {
@@ -497,24 +506,40 @@ async function runFederatedScan(options = {}) {
       text: err.message || "비슷한 문서 분석 실패",
     });
   }
+  try {
+    const stalePile =
+      localResult?.piles?.find((p) => p.id === "stale" || p.kind === "stale") ||
+      null;
+    coldOut = await coldStale.build({ useFixture: true, stalePile });
+  } catch (err) {
+    emit(send, {
+      phase: "error",
+      text: err.message || "오래 안 쓴 데이터 분류 실패",
+    });
+  }
   if (photoOut.pile?.groups?.length) piles.push(photoOut.pile);
   if (docOut.pile?.groups?.length) piles.push(docOut.pile);
+  if (coldOut.pile?.groups?.length) piles.push(coldOut.pile);
   await wait(280);
 
   const candidates = {
     exact: { groups },
     similarPhotos: { groups: photoOut.groups || [] },
     similarDocs: { groups: docOut.groups || [] },
+    coldStale: { groups: coldOut.groups || [] },
   };
 
   const dupBytes = groups.reduce((s, g) => s + g.reclaimBytes, 0);
   const mailBytes = mailCleanup?.reclaimBytes || 0;
   const photoBytes = photoOut.reclaimBytes || 0;
+  const coldBytes = coldOut.reclaimBytes || 0;
 
-  if (photoOut.groups?.length || docOut.groups?.length) {
+  if (photoOut.groups?.length || docOut.groups?.length || coldOut.groups?.length) {
     emit(send, {
       phase: "found",
-      text: "비슷한 사진·재확인 문서 묶음도 찾았어요",
+      text: coldOut.groups?.length
+        ? "잠재울 수 있는 오래된 데이터도 찾았어요"
+        : "비슷한 사진·재확인 문서 묶음도 찾았어요",
     });
   }
 
@@ -534,6 +559,7 @@ async function runFederatedScan(options = {}) {
     candidates,
     similarPhotos: photoOut.groups,
     similarDocs: docOut.groups,
+    coldStale: coldOut.groups,
     result: {
       ok: true,
       scannedAt: new Date().toISOString(),
@@ -545,16 +571,18 @@ async function runFederatedScan(options = {}) {
         peer: peerMode,
         photos: photoOut.source || "fixture",
         docs: docOut.source || "fixture",
+        cold: coldOut.source || "fixture",
       },
       piles,
       spaces,
       mailCleanup,
       candidates,
       summary: {
-        totalReclaimBytes: dupBytes + mailBytes + photoBytes,
+        totalReclaimBytes: dupBytes + mailBytes + photoBytes + coldBytes,
         duplicateBytes: dupBytes,
         mailBytes,
         photoBytes,
+        coldBytes,
       },
     },
   };

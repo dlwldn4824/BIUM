@@ -1,0 +1,44 @@
+{
+  "groups": [
+    {
+      "id": "cold-drive-jeju-2018",
+      "kind": "stale",
+      "confidence": "cold",
+      "title": "여행 사진 · 오래 안 연 폴더",
+      "reason": "이 폴더, 2년 8개월 동안 열지 않았어요. 삭제하기 불안하다면 잠재우기로 보관할까요?",
+      "idleLabel": "2년 8개월",
+      "count": 8291,
+      "reclaimBytes": 39093780480,
+      "place": "Google Drive / 여행/제주_2018",
+      "actions": ["leave", "hibernate", "clean"],
+      "carbonDefer": true,
+      "files": [
+        {
+          "name": "제주_2018 (폴더)",
+          "place": "Google Drive / 여행",
+          "size": "36.4GB",
+          "lastOpened": "2023-11-02",
+          "itemCount": 8291
+        },
+        {
+          "name": "IMG_1042.JPG",
+          "place": "Google Drive / 여행/제주_2018",
+          "size": "4.8MB",
+          "lastOpened": "2023-11-02"
+        },
+        {
+          "name": "IMG_1888.JPG",
+          "place": "Google Drive / 여행/제주_2018",
+          "size": "5.1MB",
+          "lastOpened": "2023-11-02"
+        },
+        {
+          "name": "드론_일몰.mp4",
+          "place": "Google Drive / 여행/제주_2018",
+          "size": "1.2GB",
+          "lastOpened": "2023-10-18"
+        }
+      ]
+    }
+  ]
+}

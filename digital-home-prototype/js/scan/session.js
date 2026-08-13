@@ -98,15 +98,23 @@ window.BiumScanSession = (() => {
       const mapped = window.BiumScanMap.fromCzkawkaJson(json);
       window.BiumScanMap.applyToData(mapped);
       try {
-        const [photos, docs] = await Promise.all([
+        const [photos, docs, cold] = await Promise.all([
           fetch("fixtures/similar-photos.sample.json").then((r) => r.json()),
           fetch("fixtures/similar-docs.sample.json").then((r) => r.json()),
+          fetch("fixtures/cold-stale.sample.json").then((r) => r.json()),
         ]);
         window.BiumApp?.applyCandidates?.({
           exact: { groups: [] },
           similarPhotos: { groups: photos.groups || [] },
           similarDocs: { groups: docs.groups || [] },
+          coldStale: { groups: cold.groups || [] },
         });
+        onProgress({
+          phase: "search",
+          room: "cloud",
+          text: "급하지 않은 분류라 저탄소 시간에 맞춰 처리할게요...",
+        });
+        await wait(500);
       } catch {
         /* ignore */
       }
