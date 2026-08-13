@@ -465,7 +465,140 @@
     `);
   }
 
+  function formatReclaim(bytes) {
+    const n = Number(bytes) || 0;
+    if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)}GB`;
+    if (n >= 1024 ** 2) return `${Math.max(1, Math.round(n / 1024 ** 2))}MB`;
+    return `${Math.max(1, Math.round(n / 1024))}KB`;
+  }
+
+  function applyMailCleanup(cleanup) {
+    if (!cleanup?.groups?.length) {
+      data.mailCleanup = null;
+      return;
+    }
+    data.mailCleanup = cleanup;
+    const mailFind = data.finds.find((f) => f.id === "mail");
+    if (mailFind) {
+      mailFind.label = "스팸·오래된 안읽음";
+      mailFind.count = cleanup.groups.reduce((s, g) => s + (g.count || 0), 0);
+      mailFind.gb = +((cleanup.reclaimBytes || 0) / 1024 ** 3).toFixed(1);
+    }
+    const mailGb = mailFind?.gb || 0;
+    // Base cleanup estimate + mail reclaim (capped so Mini stays readable)
+    data.summary.cleanableGb = +(8.7 + Math.min(mailGb, 3)).toFixed(1);
+    renderFinds();
+    window.BiumMini?.fillStats?.();
+  }
+
+  function openMailCleanupModal() {
+    const cleanup = data.mailCleanup;
+    if (!cleanup?.groups?.length) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">메일 정리</h3>
+          <p class="util-sheet-note">Gmail을 연결하면 스팸·오래된 안 읽은 메일을 추천해요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+
+    const rows = cleanup.groups
+      .map(
+        (g) => `
+      <li class="util-find-row">
+        <div class="util-find-main">
+          <strong>${escapeHtml(g.title)}${g.recommended ? " · 추천" : ""}</strong>
+          <small>${escapeHtml(g.reason || "")}</small>
+        </div>
+        <span class="util-find-size">${formatReclaim(g.reclaimBytes)} · ${(g.count || 0).toLocaleString()}통</span>
+      </li>`
+      )
+      .join("");
+
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">메일 정리 추천</h3>
+        <p class="util-sheet-lead">스팸과 오래 안 읽은 메일을 비우면 <strong>+${formatReclaim(cleanup.reclaimBytes)}</strong> 확보할 수 있어요</p>
+        <ul class="util-find-list">${rows}</ul>
+        <p class="util-sheet-note">메일은 바로 지우지 않고, 비우기만 추천해요.</p>
+        <div class="util-sheet-actions">
+          <button class="util-sheet-close" data-action="mail-clean-ack" type="button">정리 추천 확인</button>
+          <button class="util-sheet-ghost" data-action="close" type="button">나중에</button>
+        </div>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
+  function openFindingsHub() {
+    const hasDup = (data.duplicate?.files?.length || 0) >= 2;
+    const hasMail = !!(data.mailCleanup?.groups?.length);
+    if (hasMail && !hasDup) {
+      openMailCleanupModal();
+      return;
+    }
+    if (hasDup && !hasMail) {
+      openDuplicateModal();
+      return;
+    }
+    if (!hasDup && !hasMail) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">발견한 항목</h3>
+          <p class="util-sheet-note">아직 가져온 발견이 없어요. 탐색을 시작하거나 Gmail을 연결해 보세요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+
+    const dupN = data.duplicate.files.length;
+    const mailN = data.mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0);
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">발견한 항목</h3>
+        <p class="util-sheet-lead">정리할 수 있는 항목이 있어요</p>
+        <div class="util-options">
+          <button class="util-option" type="button" data-action="open-dup-find">
+            <span class="util-option-ico" aria-hidden="true">⧉</span>
+            <span class="util-option-text">
+              <strong>중복 파일</strong>
+              <small>내용이 같은 파일 ${dupN}개</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>
+          <button class="util-option is-on" type="button" data-action="open-mail-find">
+            <span class="util-option-ico" aria-hidden="true">✉</span>
+            <span class="util-option-text">
+              <strong>메일 정리 · 추천</strong>
+              <small>스팸·오래된 안읽음 ${mailN.toLocaleString()}통</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>
+        </div>
+        <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
   function openSimpleFind(kind) {
+    if (kind === "mail") {
+      openMailCleanupModal();
+      return;
+    }
     const map = {
       old: {
         title: "오래된 파일 상자",
@@ -478,12 +611,6 @@
         body: "오랫동안 사용하지 않은 큰 파일을 발견했어요.",
         gb: "10.2GB",
         count: "56개",
-      },
-      mail: {
-        title: "오래된 메일 첨부",
-        body: "우편함 근처의 오래된 첨부 후보예요. 확인 후 결정해 주세요.",
-        gb: "6.0GB",
-        count: "412개",
       },
     };
     const item = map[kind];
@@ -534,9 +661,19 @@
               used: s.used,
               total: s.total,
               connected: s.connected,
-              icon: s.kind === "cloud" ? "cloud" : "device",
+              icon:
+                s.kind === "mail"
+                  ? "mail"
+                  : s.kind === "cloud"
+                    ? "cloud"
+                    : "device",
             }));
             window.BiumMini?.fillStats?.();
+          }
+          if (res?.mailCleanup) applyMailCleanup(res.mailCleanup);
+          else if (con?.mailCleanup) applyMailCleanup(con.mailCleanup);
+          if (res?.ok !== false && (id === "gmail" || id === "mail")) {
+            openMailCleanupModal();
           }
         } catch (err) {
           window.BiumMini?.setAgent?.(
@@ -563,6 +700,28 @@
       return;
     }
 
+    const deskToggle = e.target.closest("[data-pet-desktop-toggle]");
+    if (deskToggle) {
+      const next = !deskToggle.classList.contains("is-on");
+      deskToggle.classList.toggle("is-on", next);
+      deskToggle.setAttribute("aria-checked", next ? "true" : "false");
+      window.biumDesktop?.petVisible?.(next);
+      return;
+    }
+
+    const themePick = e.target.closest("[data-theme-pick]");
+    if (themePick) {
+      const theme = themePick.dataset.themePick;
+      applyTheme(theme);
+      window.biumDesktop?.setConfig?.({ theme });
+      $("modalRoot")
+        ?.querySelectorAll("[data-theme-pick]")
+        .forEach((el) => {
+          el.classList.toggle("is-on", el === themePick);
+        });
+      return;
+    }
+
     const keep = e.target.closest("[data-keep]");
     if (keep) {
       state.selectedKeep = keep.dataset.keep;
@@ -584,6 +743,26 @@
     if (action === "close") {
       closeModal();
       resumeHomeChrome();
+    }
+    if (action === "open-dup-find") {
+      openDuplicateModal();
+      return;
+    }
+    if (action === "open-mail-find" || action === "mail-clean-ack") {
+      if (action === "mail-clean-ack") {
+        window.BiumMini?.setAgent?.("🐾 메일 정리 추천을 확인했어요");
+        window.BiumMini?.setFoundCount?.(
+          (data.duplicate?.files?.length || 0) +
+            (data.mailCleanup?.groups?.length || 0)
+        );
+      }
+      if (action === "open-mail-find") {
+        openMailCleanupModal();
+        return;
+      }
+      closeModal();
+      resumeHomeChrome();
+      return;
     }
     if (action === "close-result") {
       closeModal();
@@ -619,9 +798,15 @@
           used: s.used,
           total: s.total,
           connected: s.connected,
-          icon: s.kind === "cloud" ? "cloud" : "device",
+          icon:
+            s.kind === "mail"
+              ? "mail"
+              : s.kind === "cloud"
+                ? "cloud"
+                : "device",
         }));
       }
+      if (con?.mailCleanup) applyMailCleanup(con.mailCleanup);
     } catch {
       /* ignore */
     }
@@ -640,6 +825,12 @@
         name: "Google Drive",
         desc: "클라우드 저장소",
         ico: "☁",
+      },
+      {
+        id: "gmail",
+        name: "Gmail",
+        desc: "스팸·오래된 안읽음 정리 추천",
+        ico: "✉",
       },
       {
         id: "onedrive",
@@ -678,12 +869,91 @@
     );
   }
 
-  function openDisplaySettings() {
+  function normalizeTheme(theme) {
+    return theme === "noir" ? "noir" : "cozy";
+  }
+
+  function applyTheme(theme) {
+    const t = normalizeTheme(theme);
+    document.documentElement.dataset.theme = t;
+    document.body.dataset.theme = t;
+    try {
+      localStorage.setItem("bium-theme", t);
+    } catch {
+      /* ignore */
+    }
+    return t;
+  }
+
+  async function loadTheme() {
+    let theme = "cozy";
+    try {
+      const saved = localStorage.getItem("bium-theme");
+      if (saved) theme = saved;
+    } catch {
+      /* ignore */
+    }
+    try {
+      const cfg = await window.biumDesktop?.getConfig?.();
+      if (cfg?.theme) theme = cfg.theme;
+    } catch {
+      /* browser prototype */
+    }
+    return applyTheme(theme);
+  }
+
+  async function openDisplaySettings() {
     const petId = window.BiumPet?.getId() || "neko";
+    let petOnDesktop = true;
+    let theme = normalizeTheme(document.documentElement.dataset.theme || "cozy");
+    try {
+      const st = await window.biumDesktop?.scanStatus?.();
+      if (typeof st?.desktopPet === "boolean") petOnDesktop = st.desktopPet;
+      else if (typeof st?.petVisible === "boolean") petOnDesktop = st.petVisible;
+      const cfg = await window.biumDesktop?.getConfig?.();
+      if (cfg?.theme) theme = normalizeTheme(cfg.theme);
+    } catch {
+      /* browser prototype */
+    }
     openModal(
       `
       <div class="util-sheet">
         <h3 class="util-sheet-title">설정</h3>
+        <p class="util-sheet-label">테마</p>
+        <div class="util-options">
+          <button class="util-option ${theme === "cozy" ? "is-on" : ""}" type="button" data-theme-pick="cozy">
+            <span class="util-theme-swatch" data-swatch="cozy" aria-hidden="true"></span>
+            <span class="util-option-text">
+              <strong>Cozy Home</strong>
+              <small>따뜻한 크림 톤</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>
+          <button class="util-option ${theme === "noir" ? "is-on" : ""}" type="button" data-theme-pick="noir">
+            <span class="util-theme-swatch" data-swatch="noir" aria-hidden="true"></span>
+            <span class="util-option-text">
+              <strong>Midnight</strong>
+              <small>블루 · 블랙 모던</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>
+        </div>
+        <p class="util-sheet-label">바탕화면</p>
+        <div class="util-options">
+          <button
+            class="util-toggle ${petOnDesktop ? "is-on" : ""}"
+            type="button"
+            role="switch"
+            aria-checked="${petOnDesktop ? "true" : "false"}"
+            data-pet-desktop-toggle
+          >
+            <span class="util-option-text">
+              <strong>노트북에서 돌아다니기</strong>
+              <small>바탕화면에 펫을 보여요</small>
+            </span>
+            <span class="util-switch" aria-hidden="true"><i></i></span>
+          </button>
+        </div>
         <p class="util-sheet-label">Pet</p>
         <div class="util-options">
           <button class="util-option ${petId === "neko" ? "is-on" : ""}" type="button" data-pet-pick="neko">
@@ -796,9 +1066,16 @@
   window.BiumApp = {
     openDisplaySettings,
     openAddDevice,
+    applyMailCleanup,
+    openMailCleanupModal,
+    openFindingsHub,
+    openDuplicatesFromMini: () => {
+      // Keep Mini open — show which files are duplicates
+      openDuplicateModal();
+    },
     openDuplicateFromMini: () => {
       // Keep Mini open — modal overlays the popover (no rescan)
-      openDuplicateModal();
+      openFindingsHub();
     },
     openHome: () => window.BiumMode?.setMode("home"),
     openMini: () => {
@@ -809,6 +1086,7 @@
   };
 
   async function boot() {
+    await loadTheme();
     renderSpaces();
     renderFinds();
     renderHud();
@@ -821,6 +1099,9 @@
 
     await window.BiumMode?.boot?.();
     await window.BiumMini?.init?.();
+    window.biumDesktop?.onConfig?.((cfg) => {
+      if (cfg?.theme) applyTheme(cfg.theme);
+    });
 
     document.addEventListener("bium:mode", (e) => {
       if (e.detail?.mode === "home") {

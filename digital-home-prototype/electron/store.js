@@ -53,6 +53,10 @@ function getConfig() {
       "",
     /** Hackathon: allow demo Drive index without real OAuth */
     demoCloud: raw.demoCloud !== false,
+    /** Show desktop pet wandering on the Mac screen */
+    desktopPet: raw.desktopPet !== false,
+    /** Mini UI theme: cozy | noir */
+    theme: raw.theme === "noir" ? "noir" : "cozy",
   };
 }
 

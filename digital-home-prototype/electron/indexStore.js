@@ -7,14 +7,14 @@ const { app } = require("electron");
 
 const FILE = () => path.join(app.getPath("userData"), "bium-index.json");
 
-/** @type {{ devices: Record<string, object>, entries: object[], updatedAt: string|null }} */
-let mem = { devices: {}, entries: [], updatedAt: null };
+/** @type {{ devices: Record<string, object>, entries: object[], mailCleanup: object|null, updatedAt: string|null }} */
+let mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
 
 function load() {
   try {
     mem = JSON.parse(fs.readFileSync(FILE(), "utf8"));
   } catch {
-    mem = { devices: {}, entries: [], updatedAt: null };
+    mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
   }
   return mem;
 }
@@ -185,8 +185,20 @@ function listEntries() {
   return mem.entries.slice();
 }
 
+function setMailCleanup(payload) {
+  load();
+  mem.mailCleanup = payload || null;
+  save();
+  return mem.mailCleanup;
+}
+
+function getMailCleanup() {
+  load();
+  return mem.mailCleanup || null;
+}
+
 function clear() {
-  mem = { devices: {}, entries: [], updatedAt: null };
+  mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
   save();
 }
 
@@ -197,6 +209,7 @@ function snapshot() {
     deviceCount: Object.keys(mem.devices).length,
     entryCount: mem.entries.length,
     devices: listDevices(),
+    mailCleanup: mem.mailCleanup || null,
   };
 }
 
@@ -208,6 +221,8 @@ module.exports = {
   findCrossDeviceDuplicates,
   listDevices,
   listEntries,
+  setMailCleanup,
+  getMailCleanup,
   clear,
   snapshot,
   formatBytes,

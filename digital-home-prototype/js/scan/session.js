@@ -51,9 +51,17 @@ window.BiumScanSession = (() => {
             used: s.used,
             total: s.total,
             connected: s.connected,
-            icon: s.kind === "cloud" ? "cloud" : "device",
+            icon:
+              s.kind === "mail"
+                ? "mail"
+                : s.kind === "cloud"
+                  ? "cloud"
+                  : "device",
           }));
         }
+        const mail =
+          res?.mailCleanup || res?.result?.mailCleanup || null;
+        if (mail) window.BiumApp?.applyMailCleanup?.(mail);
         return res;
       }
 

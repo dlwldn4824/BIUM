@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="cozy">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,10 +10,10 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/pixel.css?v=tray11" />
-    <link rel="stylesheet" href="css/mini.css?v=tray11" />
+    <link rel="stylesheet" href="css/pixel.css?v=tray18" />
+    <link rel="stylesheet" href="css/mini.css?v=tray18" />
   </head>
-  <body data-mode="mini">
+  <body data-mode="mini" data-theme="cozy">
     <!-- ===== TrayPopover — quiet macOS utility + pixel pet ===== -->
     <aside class="mini-root is-home" id="miniRoot" data-view="status" aria-label="my home">
       <header class="mini-head">
@@ -52,10 +52,10 @@
           <span>정리 후보</span>
           <strong id="miniCleanable">8.7GB</strong>
         </div>
-        <div class="mini-stat">
+        <button class="mini-stat mini-stat-btn" id="btnMiniNewFinds" type="button" title="중복 파일 보기">
           <span>새로 발견</span>
           <strong id="miniNewFinds" data-count="0">0건</strong>
-        </div>
+        </button>
       </div>
 
       <section class="mini-spaces-block" aria-label="연결된 기기">

@@ -30,8 +30,10 @@ window.DigitalHomeData = {
     { id: "duplicate", label: "중복 파일", icon: "⧉", gb: 18.7, count: 342 },
     { id: "old", label: "오래된 파일", icon: "◷", gb: 12.4, count: 851 },
     { id: "large", label: "대용량 방치 파일", icon: "▣", gb: 10.2, count: 56 },
-    { id: "mail", label: "오래된 메일/첨부", icon: "✉", gb: 6.0, count: 412 },
+    { id: "mail", label: "스팸·오래된 안읽음", icon: "✉", gb: 2.8, count: 1630 },
   ],
+  /** Populated when Gmail is connected */
+  mailCleanup: null,
   agent: {
     line: "지금은 쉬고 있어요",
     sub: "바탕화면 펫 · 대기 중",

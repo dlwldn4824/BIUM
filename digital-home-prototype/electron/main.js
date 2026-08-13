@@ -37,9 +37,9 @@ let displayMode = "mini";
 /** last found duplicate group for panel */
 let lastPrimary = null;
 
-/** Compact TrayPopover — sized to fit without scrollbar */
+/** Compact TrayPopover — tall enough for devices + stacked CTAs */
 const MINI_W = 300;
-const MINI_H = 640;
+const MINI_H = 680;
 /** @type {number} */
 let trayBadge = 0;
 const HOME_W = 1280;
@@ -139,7 +139,7 @@ function createPanelWindow() {
     width: MINI_W,
     height: MINI_H,
     minWidth: 280,
-    minHeight: 300,
+    minHeight: 420,
     show: false,
     // Empty title — avoids native label under traffic lights
     title: "",
@@ -148,6 +148,7 @@ function createPanelWindow() {
     trafficLightPosition: { x: 16, y: 14 },
     roundedCorners: true,
     hasShadow: true,
+    movable: true,
     resizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -204,6 +205,19 @@ function ensurePet() {
   return pet;
 }
 
+function isDesktopPetEnabled() {
+  return store.getConfig().desktopPet !== false;
+}
+
+function applyDesktopPetVisibility(on) {
+  const p = ensurePet();
+  const enabled = !!on;
+  store.setConfig({ desktopPet: enabled });
+  p.setVisible(enabled);
+  if (enabled) p.sleepInCorner();
+  return { visible: p.visible, desktopPet: enabled };
+}
+
 async function runDesktopPetScan(options = {}) {
   const controller = ensurePet();
   const runScan = async (send) => {
@@ -224,17 +238,38 @@ async function runDesktopPetScan(options = {}) {
 
   let out;
   try {
-    out = await controller.playAgentStory({
-      runScan,
-      onFound: (primary) => {
+    // Preference off: scan without walking the desktop pet
+    if (!isDesktopPetEnabled()) {
+      controller.setVisible(false);
+      const scan = await runScan(() => {});
+      const primary = scan?.primary || null;
+      if (primary) {
         lastPrimary = primary;
         const n = primary?.files?.length || 0;
         trayBadge = n;
         trayState.setFound(n, "새 발견");
         applyTrayPresentation();
         broadcast("bium:pet-found", { primary });
-      },
-    });
+      }
+      out = {
+        ok: true,
+        scan,
+        found: !!(primary?.files?.length >= 2),
+        summoned: false,
+      };
+    } else {
+      out = await controller.playAgentStory({
+        runScan,
+        onFound: (primary) => {
+          lastPrimary = primary;
+          const n = primary?.files?.length || 0;
+          trayBadge = n;
+          trayState.setFound(n, "새 발견");
+          applyTrayPresentation();
+          broadcast("bium:pet-found", { primary });
+        },
+      });
+    }
   } catch (err) {
     trayState.setError(err.message || "오류");
     applyTrayPresentation();
@@ -258,8 +293,11 @@ async function runDesktopPetScan(options = {}) {
     usedFixture: out?.scan?.usedFixture,
     roomsVisited: out?.scan?.roomsVisited,
     primary: out?.scan?.primary || lastPrimary,
+    groups: out?.scan?.groups,
+    spaces: out?.scan?.spaces,
+    mailCleanup: out?.scan?.mailCleanup || indexStore.getMailCleanup(),
     result: out?.scan?.result,
-    desktopPet: true,
+    desktopPet: isDesktopPetEnabled(),
   };
 }
 
@@ -376,9 +414,13 @@ app.whenReady().then(() => {
   createTray();
   ensureDevices();
   ensurePet();
-  // Pet overlay sleeps quietly; popover opens only from tray click
-  pet.setVisible(true);
-  pet.sleepInCorner();
+  // Pet overlay follows settings preference; popover opens only from tray click
+  if (isDesktopPetEnabled()) {
+    pet.setVisible(true);
+    pet.sleepInCorner();
+  } else {
+    pet.setVisible(false);
+  }
 
   lanPeer
     .start({ alias: osHostname() })
@@ -474,7 +516,7 @@ ipcMain.handle("bium:scanStatus", () => ({
   ok: true,
   hasCzkawka: !!resolveBinary(),
   engine: process.env.BIUM_SCAN_ENGINE || "auto",
-  desktopPet: true,
+  desktopPet: isDesktopPetEnabled(),
   petVisible: !!pet?.visible,
   location: petLocation.snapshot(),
 }));
@@ -491,12 +533,13 @@ ipcMain.handle("bium:petScan", async (_e, options = {}) => {
 });
 
 ipcMain.handle("bium:petVisible", (_e, on) => {
-  const p = ensurePet();
   if (typeof on === "boolean") {
-    p.setVisible(on);
-    if (on) p.sleepInCorner();
+    return applyDesktopPetVisibility(on);
   }
-  return { visible: p.visible };
+  return {
+    visible: !!pet?.visible,
+    desktopPet: isDesktopPetEnabled(),
+  };
 });
 
 ipcMain.handle("bium:setTrayBadge", (_e, n) => {
@@ -537,6 +580,7 @@ ipcMain.handle("bium:getConnections", () => {
     ok: true,
     status: store.connectionStatus(),
     spaces: spacesFromIndex(),
+    mailCleanup: indexStore.getMailCleanup(),
     index: indexStore.snapshot(),
   };
 });
@@ -545,6 +589,7 @@ function publishConnections() {
   const payload = {
     status: store.connectionStatus(),
     spaces: spacesFromIndex(),
+    mailCleanup: indexStore.getMailCleanup(),
   };
   broadcast("bium:connections", payload);
   return payload;
@@ -578,11 +623,49 @@ async function connectGoogleSpace() {
   return { ok: true, spaceId: "gdrive", ...res };
 }
 
+async function connectGmailSpace() {
+  const cfg = store.getConfig();
+  ensureDevices();
+  const { buildMailCleanup, QUOTA } = require("./peers/gmailDemo");
+
+  let mailCleanup = buildMailCleanup();
+  let demo = true;
+
+  if (cfg.googleClientId) {
+    try {
+      const google = require("./providers/google");
+      // Reuse Google session when possible; otherwise run OAuth with Gmail scopes
+      if (!store.connectionStatus().google) {
+        await google.connect();
+      }
+      mailCleanup = await google.listMailCleanupRecommendations();
+      if (!mailCleanup?.groups?.length) mailCleanup = buildMailCleanup();
+      else demo = false;
+    } catch {
+      mailCleanup = buildMailCleanup();
+      demo = true;
+    }
+  }
+
+  indexStore.setDeviceConnected("gmail", true);
+  indexStore.setDeviceQuota("gmail", QUOTA.usedBytes, QUOTA.totalBytes);
+  indexStore.setMailCleanup(mailCleanup);
+  publishConnections();
+  return {
+    ok: true,
+    demo,
+    spaceId: "gmail",
+    message: "Gmail을 연결했어요 · 스팸·오래된 안읽음 정리를 추천해요",
+    mailCleanup,
+  };
+}
+
 async function connectSpace(spaceId) {
   ensureDevices();
   const id = String(spaceId || "");
 
   if (id === "gdrive") return connectGoogleSpace();
+  if (id === "gmail" || id === "mail") return connectGmailSpace();
 
   if (id === "onedrive") {
     // Hackathon demo — no Microsoft OAuth client required
@@ -650,6 +733,9 @@ ipcMain.handle("bium:disconnectSpace", (_e, spaceId) => {
       /* ignore */
     }
   }
+  if (id === "gmail" || id === "mail") {
+    indexStore.setMailCleanup(null);
+  }
   if (id && id !== "mac-local") {
     indexStore.setDeviceConnected(id, false);
   }
@@ -657,4 +743,11 @@ ipcMain.handle("bium:disconnectSpace", (_e, spaceId) => {
   return { ok: true, spaceId: id };
 });
 
-ipcMain.handle("bium:setConfig", (_e, partial) => store.setConfig(partial || {}));
+ipcMain.handle("bium:getConfig", () => store.getConfig());
+ipcMain.handle("bium:setConfig", (_e, partial) => {
+  const next = store.setConfig(partial || {});
+  if (partial && Object.prototype.hasOwnProperty.call(partial, "theme")) {
+    broadcast("bium:config", next);
+  }
+  return next;
+});

@@ -10,6 +10,8 @@ window.BiumMini = (() => {
     desktop: "🖥",
     gdrive: "☁",
     onedrive: "☁",
+    gmail: "✉",
+    mail: "✉",
   };
   const BAR_COLOR = {
     "mac-local": "#7ecb8f",
@@ -18,6 +20,8 @@ window.BiumMini = (() => {
     desktop: "#e8a86a",
     gdrive: "#7eb6e8",
     onedrive: "#7eb6e8",
+    gmail: "#e89a9a",
+    mail: "#e89a9a",
   };
 
   /** @type {any} */
@@ -69,8 +73,19 @@ window.BiumMini = (() => {
 
     const dupFiles = data?.duplicate?.files?.length || 0;
     if (dupFiles >= 2) foundCount = Math.max(foundCount, dupFiles);
-    const n = Number($("miniNewFinds")?.dataset.count || foundCount || 0);
-    setFoundCount(n || (dupFiles >= 2 ? dupFiles : foundCount));
+    const n = Math.max(
+      foundCount,
+      Number($("miniNewFinds")?.dataset.count || 0),
+      dupFiles >= 2 ? dupFiles : 0
+    );
+    setFoundCount(n);
+
+    const btn = $("btnMiniNewFinds");
+    if (btn) {
+      const has = n > 0 || dupFiles >= 2;
+      btn.disabled = !has;
+      btn.setAttribute("aria-disabled", has ? "false" : "true");
+    }
   }
 
   function setFoundCount(n) {
@@ -132,7 +147,13 @@ window.BiumMini = (() => {
     const data = window.DigitalHomeData;
     if (!list || !data?.spaces) return;
 
-    const preferred = ["mac-local", "windows-peer", "gdrive", "onedrive"];
+    const preferred = [
+      "mac-local",
+      "windows-peer",
+      "gdrive",
+      "gmail",
+      "onedrive",
+    ];
     const byId = Object.fromEntries(data.spaces.map((s) => [s.id, s]));
     // Show connected spaces (+ Mac always)
     const rows = preferred
@@ -178,9 +199,17 @@ window.BiumMini = (() => {
           used: s.used,
           total: s.total,
           connected: s.connected,
-          icon: s.kind === "cloud" ? "cloud" : "device",
+          icon:
+            s.kind === "mail"
+              ? "mail"
+              : s.kind === "cloud"
+                ? "cloud"
+                : "device",
         }));
         fillSpaces();
+      }
+      if (res?.mailCleanup) {
+        window.BiumApp?.applyMailCleanup?.(res.mailCleanup);
       }
     } catch {
       /* ignore */
@@ -302,11 +331,27 @@ window.BiumMini = (() => {
   }
 
   function openFindings() {
-    const has =
+    const hasDup =
       foundCount > 0 ||
       (window.DigitalHomeData?.duplicate?.files?.length || 0) >= 2;
-    if (!has) {
+    const hasMail = !!(window.DigitalHomeData?.mailCleanup?.groups?.length);
+    if (!hasDup && !hasMail) {
       setStatus("🐾 아직 가져온 발견이 없어요");
+      return;
+    }
+    if (window.BiumApp?.openFindingsHub) window.BiumApp.openFindingsHub();
+    else window.BiumApp?.openDuplicateFromMini?.();
+  }
+
+  /** "새로 발견 N건" → duplicate file list */
+  function openNewFinds() {
+    const files = window.DigitalHomeData?.duplicate?.files || [];
+    if (files.length < 2 && foundCount <= 0) {
+      setStatus("🐾 아직 가져온 발견이 없어요");
+      return;
+    }
+    if (window.BiumApp?.openDuplicatesFromMini) {
+      window.BiumApp.openDuplicatesFromMini();
       return;
     }
     window.BiumApp?.openDuplicateFromMini?.();
@@ -368,6 +413,7 @@ window.BiumMini = (() => {
     $("btnMiniScan")?.addEventListener("click", () => startLiveScan());
     $("btnMiniSummon")?.addEventListener("click", () => summonHere());
     $("btnFindOpen")?.addEventListener("click", () => openFindings());
+    $("btnMiniNewFinds")?.addEventListener("click", () => openNewFinds());
     $("btnConnectSpace")?.addEventListener("click", () => openAddDeviceSheet());
     $("btnMiniSettings")?.addEventListener("click", () => {
       window.BiumApp?.openDisplaySettings?.();
@@ -382,11 +428,21 @@ window.BiumMini = (() => {
           used: s.used,
           total: s.total,
           connected: s.connected,
-          icon: s.kind === "cloud" ? "cloud" : "device",
+          icon:
+            s.kind === "mail"
+              ? "mail"
+              : s.kind === "cloud"
+                ? "cloud"
+                : "device",
         }));
         fillSpaces();
       } else {
         refreshConnections();
+      }
+      if (payload?.mailCleanup) {
+        window.BiumApp?.applyMailCleanup?.(payload.mailCleanup);
+        const mailGroups = payload.mailCleanup.groups?.length || 0;
+        if (mailGroups) setFoundCount(Math.max(foundCount, mailGroups));
       }
     });
     window.biumDesktop?.onPetLocation?.((snap) => applyLocation(snap));
@@ -427,6 +483,7 @@ window.BiumMini = (() => {
     init,
     start,
     stop,
+    setFoundCount,
     fillStats,
     remountPet,
     startLiveScan,

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("biumDesktop", {
   disconnectGoogle: () => ipcRenderer.invoke("bium:disconnectGoogle"),
   disconnectSpace: (spaceId) =>
     ipcRenderer.invoke("bium:disconnectSpace", spaceId),
+  getConfig: () => ipcRenderer.invoke("bium:getConfig"),
   setConfig: (partial) => ipcRenderer.invoke("bium:setConfig", partial || {}),
   setTrayBadge: (n) => ipcRenderer.invoke("bium:setTrayBadge", n),
   onScanProgress: (cb) => {
@@ -54,5 +55,10 @@ contextBridge.exposeInMainWorld("biumDesktop", {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on("bium:agent-event", handler);
     return () => ipcRenderer.removeListener("bium:agent-event", handler);
+  },
+  onConfig: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on("bium:config", handler);
+    return () => ipcRenderer.removeListener("bium:config", handler);
   },
 });

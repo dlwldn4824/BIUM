@@ -21,6 +21,10 @@ const {
   buildDemoDriveIndex,
   QUOTA: DRIVE_DEMO_QUOTA,
 } = require("./peers/gdriveDemo");
+const {
+  buildMailCleanup,
+  QUOTA: MAIL_QUOTA,
+} = require("./peers/gmailDemo");
 
 function emit(send, payload) {
   if (typeof send === "function") send(payload);
@@ -64,6 +68,12 @@ function ensureDevices() {
     id: "onedrive",
     label: "OneDrive",
     kind: "cloud",
+    platform: "cloud",
+  });
+  indexStore.registerDevice({
+    id: "gmail",
+    label: "Gmail",
+    kind: "mail",
     platform: "cloud",
   });
 }
@@ -365,11 +375,55 @@ async function runFederatedScan(options = {}) {
   });
   await wait(400);
 
-  // ---- 4) Merge ----
+  // ---- 4) Gmail cleanup recommendations (spam + stale unread) ----
+  let mailCleanup = null;
+  const gmailDevice = indexStore.listDevices().find((d) => d.id === "gmail");
+  if (gmailDevice?.connected) {
+    emit(send, {
+      phase: "walk",
+      room: "mail",
+      agent: "mail",
+      label: "Gmail",
+      text: "메일함에서 비울 수 있는 항목 확인 중...",
+    });
+    try {
+      if (status.google) {
+        const google = require("./providers/google");
+        mailCleanup = await google.listMailCleanupRecommendations();
+        if (!mailCleanup?.groups?.length) {
+          mailCleanup = buildMailCleanup();
+        }
+      } else {
+        mailCleanup = buildMailCleanup();
+      }
+    } catch {
+      mailCleanup = buildMailCleanup();
+    }
+    indexStore.setDeviceQuota(
+      "gmail",
+      MAIL_QUOTA.usedBytes,
+      MAIL_QUOTA.totalBytes
+    );
+    indexStore.setMailCleanup(mailCleanup);
+    emit(send, {
+      phase: "search",
+      room: "mail",
+      agent: "mail",
+      text: mailCleanup.groups?.length
+        ? "스팸·오래된 안 읽은 메일 정리 추천을 찾았어요"
+        : "메일함은 깨끗한 편이에요",
+    });
+    await wait(350);
+  } else {
+    indexStore.setMailCleanup(null);
+  }
+
+  // ---- 5) Merge ----
   const groups = indexStore.findCrossDeviceDuplicates();
   const primary = groups[0] || null;
   const spaces = spacesFromIndex();
   const snap = indexStore.snapshot();
+  mailCleanup = indexStore.getMailCleanup();
 
   emit(send, {
     phase: "indexed",
@@ -394,6 +448,30 @@ async function runFederatedScan(options = {}) {
     emit(send, { phase: "idle", text: "지금은 깨끗해요" });
   }
 
+  const piles = [
+    {
+      id: "duplicates",
+      kind: "duplicate",
+      label: "중복 파일",
+      count: groups.reduce((s, g) => s + g.files.length, 0),
+      reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
+      groups,
+    },
+  ];
+  if (mailCleanup?.groups?.length) {
+    piles.push({
+      id: "mail-cleanup",
+      kind: "mail",
+      label: "메일 정리",
+      count: mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0),
+      reclaimBytes: mailCleanup.reclaimBytes || 0,
+      groups: mailCleanup.groups,
+    });
+  }
+
+  const dupBytes = groups.reduce((s, g) => s + g.reclaimBytes, 0);
+  const mailBytes = mailCleanup?.reclaimBytes || 0;
+
   return {
     ok: true,
     usedFixture: useFixture,
@@ -406,6 +484,7 @@ async function runFederatedScan(options = {}) {
     primary,
     groups,
     spaces,
+    mailCleanup,
     result: {
       ok: true,
       scannedAt: new Date().toISOString(),
@@ -416,20 +495,13 @@ async function runFederatedScan(options = {}) {
         drive: driveMode,
         peer: peerMode,
       },
-      piles: [
-        {
-          id: "duplicates",
-          kind: "duplicate",
-          label: "중복 파일",
-          count: groups.reduce((s, g) => s + g.files.length, 0),
-          reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
-          groups,
-        },
-      ],
+      piles,
       spaces,
+      mailCleanup,
       summary: {
-        totalReclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
-        duplicateBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
+        totalReclaimBytes: dupBytes + mailBytes,
+        duplicateBytes: dupBytes,
+        mailBytes,
       },
     },
   };

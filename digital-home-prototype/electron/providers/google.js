@@ -6,9 +6,14 @@ const TOKEN = "https://oauth2.googleapis.com/token";
 // Metadata + checksum only — we never download file bodies for hashing.
 const SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/gmail.readonly",
   "openid",
   "email",
 ];
+
+/** Avg size guess when Gmail only returns resultSizeEstimate */
+const AVG_SPAM_BYTES = 180_000;
+const AVG_UNREAD_BYTES = 90_000;
 
 async function ensureAccessToken() {
   let token = store.getToken("google");
@@ -150,6 +155,59 @@ async function listGmailAttachmentCandidates({ max = 40 } = {}) {
   return out;
 }
 
+async function estimateQuery(q) {
+  const data = await gfetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?q=" +
+      encodeURIComponent(q) +
+      "&maxResults=1"
+  );
+  return Number(data.resultSizeEstimate || 0);
+}
+
+/**
+ * Recommend emptying spam + long-unread mail when Gmail is connected.
+ */
+async function listMailCleanupRecommendations() {
+  const spamCount = await estimateQuery("in:spam");
+  const unreadCount = await estimateQuery("is:unread older_than:90d -in:spam");
+  const spamBytes = spamCount * AVG_SPAM_BYTES;
+  const unreadBytes = unreadCount * AVG_UNREAD_BYTES;
+  const groups = [];
+
+  if (spamCount > 0) {
+    groups.push({
+      id: "spam",
+      kind: "spam",
+      title: "스팸함",
+      reason: "스팸함이 쌓여 있어요. 비우면 메일함 공간을 바로 확보할 수 있어요.",
+      count: spamCount,
+      reclaimBytes: spamBytes,
+      actionLabel: "스팸함 비우기",
+      recommended: true,
+    });
+  }
+  if (unreadCount > 0) {
+    groups.push({
+      id: "old-unread",
+      kind: "old-unread",
+      title: "오래된 안 읽은 메일",
+      reason: "90일 이상 안 읽은 메일이에요. 필요 없다면 정리해 보세요.",
+      count: unreadCount,
+      reclaimBytes: unreadBytes,
+      actionLabel: "오래된 안읽음 정리",
+      recommended: true,
+    });
+  }
+
+  return {
+    ok: true,
+    demo: false,
+    source: "gmail",
+    reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
+    groups,
+  };
+}
+
 async function deleteDriveFile(fileId) {
   await gfetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
     method: "DELETE",
@@ -185,6 +243,7 @@ module.exports = {
   disconnect,
   listDriveCandidates,
   listGmailAttachmentCandidates,
+  listMailCleanupRecommendations,
   deleteDriveFile,
   trashGmailMessage,
   aboutStorage,
