@@ -33,13 +33,16 @@ window.BiumScanSession = (() => {
         const res = desktop()?.petScan
           ? await desktop().petScan(opts.scanOptions || {})
           : await desktop().scanLocal(opts.scanOptions || {});
-        if (res?.primary && window.BiumScanMap) {
+        const allGroups =
+          res?.groups ||
+          res?.candidates?.exact?.groups ||
+          res?.result?.piles?.find((p) => p.id === "duplicates")?.groups ||
+          [];
+        if (allGroups.length && window.BiumApp?.applyExactGroups) {
+          window.BiumApp.applyExactGroups(allGroups);
+        } else if (res?.primary && window.BiumScanMap) {
           const mapped = window.BiumScanMap.fromDietGroup(res.primary, {
-            groupCount:
-              res.groups?.length ||
-              res.result?.piles?.find((p) => p.id === "duplicates")?.groups
-                ?.length ||
-              1,
+            groupCount: allGroups.length || 1,
             engine: res.primary.engine || "index",
           });
           window.BiumScanMap.applyToData(mapped);
@@ -51,6 +54,7 @@ window.BiumScanSession = (() => {
             used: s.used,
             total: s.total,
             connected: s.connected,
+            demo: !!s.demo,
             icon:
               s.kind === "mail"
                 ? "mail"
@@ -59,12 +63,23 @@ window.BiumScanSession = (() => {
                   : "device",
           }));
         }
+        const summary = res?.summary || res?.result?.summary || null;
+        if (summary && window.DigitalHomeData?.summary) {
+          Object.assign(window.DigitalHomeData.summary, summary);
+        }
         const mail =
           res?.mailCleanup || res?.result?.mailCleanup || null;
         if (mail) window.BiumApp?.applyMailCleanup?.(mail);
         const candidates =
           res?.candidates || res?.result?.candidates || null;
-        if (candidates) window.BiumApp?.applyCandidates?.(candidates);
+        if (candidates) {
+          window.BiumApp?.applyCandidates?.({
+            ...candidates,
+            exact: { groups: allGroups.length ? allGroups : candidates.exact?.groups || [] },
+          });
+        }
+        window.BiumApp?.syncFindCountToSummary?.();
+        window.BiumMini?.fillStats?.();
         return res;
       }
 

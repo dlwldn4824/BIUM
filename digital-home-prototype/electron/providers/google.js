@@ -3,17 +3,26 @@ const store = require("../store");
 
 const AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN = "https://oauth2.googleapis.com/token";
-// Metadata + checksum only — we never download file bodies for hashing.
+// drive = list + md5Checksum + trash. Re-consent needed after scope change.
+// File bodies are never uploaded to BIUM servers — only metadata/checksums.
 const SCOPES = [
-  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/gmail.readonly",
   "openid",
   "email",
 ];
 
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+
 /** Avg size guess when Gmail only returns resultSizeEstimate */
 const AVG_SPAM_BYTES = 180_000;
 const AVG_UNREAD_BYTES = 90_000;
+
+function tokenHasGmailScope(token) {
+  const scope = String(token?.scope || "");
+  if (!scope) return false;
+  return scope.split(/\s+/).includes(GMAIL_SCOPE);
+}
 
 async function ensureAccessToken() {
   let token = store.getToken("google");
@@ -57,7 +66,67 @@ async function connect() {
     },
   });
   store.saveToken("google", token);
-  return { ok: true, provider: "google" };
+  return { ok: true, provider: "google", scope: token.scope || "" };
+}
+
+/** Lightweight Gmail probe — fails if scope missing or Gmail API disabled. */
+async function probeGmail() {
+  const data = await gfetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+  );
+  return {
+    email: data.emailAddress || null,
+    messagesTotal: Number(data.messagesTotal || 0),
+    threadsTotal: Number(data.threadsTotal || 0),
+  };
+}
+
+/**
+ * Ensure Google token can call Gmail. Reuses session when scope already works;
+ * otherwise opens OAuth (Drive + Gmail).
+ */
+async function ensureGmailAccess() {
+  const existing = store.getToken("google");
+  if (existing?.access_token || existing?.refresh_token) {
+    // Probe when scope unknown or already includes Gmail
+    if (tokenHasGmailScope(existing) || !existing.scope) {
+      try {
+        const profile = await probeGmail();
+        return { ok: true, reused: true, email: profile.email };
+      } catch (err) {
+        const msg = String(err.message || err);
+        // API not enabled — re-login will not help
+        if (/has not been used|accessNotConfigured|disabled/i.test(msg)) {
+          throw err;
+        }
+        // Missing / expired scope → force consent below
+        if (
+          !/insufficient|ACCESS_TOKEN_SCOPE|403|401|Invalid Credentials|UNAUTHENTICATED/i.test(
+            msg
+          )
+        ) {
+          throw err;
+        }
+      }
+    }
+  }
+  await connect();
+  const profile = await probeGmail();
+  return { ok: true, reused: false, email: profile.email };
+}
+
+function friendlyGmailError(err) {
+  const msg = String(err?.message || err || "");
+  if (/has not been used|disabled|accessNotConfigured/i.test(msg)) {
+    return "Google Cloud에서 Gmail API를 사용 설정한 뒤 다시 연결해 주세요";
+  }
+  if (/insufficient|ACCESS_TOKEN_SCOPE|invalid_scope/i.test(msg)) {
+    return "Gmail 읽기 권한이 없어요. 로그인 창에서 Gmail 접근을 허용해 주세요";
+  }
+  if (/Client ID|client_id/i.test(msg)) {
+    return "설정에서 Google Client ID를 먼저 넣어 주세요";
+  }
+  return msg || "Gmail에 연결하지 못했어요";
 }
 
 function disconnect() {
@@ -166,10 +235,21 @@ async function estimateQuery(q) {
 
 /**
  * Recommend emptying spam + long-unread mail when Gmail is connected.
+ * Empty groups = real mailbox is clean (never invent demo counts here).
  */
 async function listMailCleanupRecommendations() {
-  const spamCount = await estimateQuery("in:spam");
-  const unreadCount = await estimateQuery("is:unread older_than:90d -in:spam");
+  let email = null;
+  try {
+    const profile = await probeGmail();
+    email = profile.email;
+  } catch {
+    /* estimateQuery will surface the real error */
+  }
+
+  const [spamCount, unreadCount] = await Promise.all([
+    estimateQuery("in:spam"),
+    estimateQuery("is:unread older_than:90d -in:spam"),
+  ]);
   const spamBytes = spamCount * AVG_SPAM_BYTES;
   const unreadBytes = unreadCount * AVG_UNREAD_BYTES;
   const groups = [];
@@ -203,13 +283,30 @@ async function listMailCleanupRecommendations() {
     ok: true,
     demo: false,
     source: "gmail",
+    email,
+    spamCount,
+    unreadCount,
     reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
     groups,
   };
 }
 
+/** Soft-delete to Drive trash (recoverable). */
+async function trashDriveFile(fileId) {
+  const id = encodeURIComponent(String(fileId || ""));
+  if (!id) throw new Error("Drive 파일 ID가 없어요");
+  await gfetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+  return { ok: true, fileId: String(fileId) };
+}
+
+/** Permanent delete — prefer trashDriveFile for user-facing keep-one. */
 async function deleteDriveFile(fileId) {
-  await gfetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+  const id = encodeURIComponent(String(fileId || ""));
+  await gfetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
     method: "DELETE",
   });
   return { ok: true };
@@ -241,10 +338,16 @@ async function aboutStorage() {
 module.exports = {
   connect,
   disconnect,
+  ensureGmailAccess,
+  probeGmail,
+  friendlyGmailError,
   listDriveCandidates,
   listGmailAttachmentCandidates,
   listMailCleanupRecommendations,
+  trashDriveFile,
   deleteDriveFile,
   trashGmailMessage,
   aboutStorage,
+  SCOPES,
+  GMAIL_SCOPE,
 };

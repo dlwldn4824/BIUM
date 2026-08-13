@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/pixel.css?v=impact1" />
-    <link rel="stylesheet" href="css/mini.css?v=impact1" />
+    <link rel="stylesheet" href="css/mini.css?v=nobgline1" />
   </head>
   <body data-mode="mini" data-theme="cozy">
     <!-- ===== TrayPopover — quiet macOS utility + pixel pet ===== -->
@@ -38,7 +38,12 @@
 
       <section class="mini-habitat is-sleep" id="miniHabitat" aria-label="펫 방">
         <div class="mini-habitat-bg" aria-hidden="true"></div>
-        <div class="mini-pet pet-atlas" id="miniPet" role="img" aria-label="desktop pet"></div>
+        <div class="mini-pets" id="miniPets" aria-hidden="false">
+          <div class="mini-pet is-dog pet-atlas" id="miniPetDog" role="img" aria-label="강아지"></div>
+          <div class="mini-pet is-cat pet-atlas" id="miniPetCat" role="img" aria-label="고양이"></div>
+        </div>
+        <!-- legacy id kept for any leftover refs -->
+        <div id="miniPet" hidden></div>
         <div class="mini-away" id="miniAway" hidden>
           <div class="mini-paws" aria-hidden="true">
             <span>🐾</span><span>🐾</span><span>🐾</span>
@@ -47,6 +52,10 @@
       </section>
 
       <p class="mini-status" id="miniLocStatus" aria-live="polite" hidden></p>
+      <div class="mini-scan-progress" id="miniScanProgress" hidden>
+        <div class="mini-scan-bar" aria-hidden="true"><i id="miniScanBarFill"></i></div>
+        <p class="mini-scan-label" id="miniScanLabel">탐색 중…</p>
+      </div>
 
       <div class="mini-stats">
         <button
@@ -57,7 +66,7 @@
           aria-label="정리 후보 절감 효과 보기"
         >
           <span class="mini-stat-label">정리 후보 <i class="mini-stat-chev" aria-hidden="true">›</i></span>
-          <strong id="miniCleanable">8.7GB</strong>
+          <strong id="miniCleanable">—</strong>
         </button>
         <button class="mini-stat mini-stat-btn mini-stat-finds" id="btnMiniNewFinds" type="button" title="중복 파일 보기">
           <span class="mini-stat-label">새로 발견 <i class="mini-stat-chev" aria-hidden="true">›</i></span>
@@ -413,16 +422,16 @@
       <div class="pixel-dialog" id="modalRoot" role="dialog" aria-modal="true"></div>
     </div>
 
-    <script src="js/data.js?v=impact1"></script>
-    <script src="js/mode.js?v=impact1"></script>
-    <script src="js/petSelect.js?v=impact1"></script>
-    <script src="js/scan/mapCzkawka.js?v=impact1"></script>
-    <script src="js/scan/session.js?v=impact1"></script>
-    <script src="js/components/PetAtlas.js?v=impact1"></script>
-    <script src="js/components/GifPet.js?v=impact1"></script>
-    <script src="js/components/RetrieverSprite.js?v=impact1"></script>
-    <script src="js/components/CatAgent.js?v=impact1"></script>
-    <script src="js/mini.js?v=impact1"></script>
-    <script src="js/app.js?v=impact2"></script>
+    <script src="js/data.js?v=scanfast1"></script>
+    <script src="js/mode.js?v=scanfast1"></script>
+    <script src="js/petSelect.js?v=wander1"></script>
+    <script src="js/scan/mapCzkawka.js?v=finds1"></script>
+    <script src="js/scan/session.js?v=finds1"></script>
+    <script src="js/components/PetAtlas.js?v=scanfast1"></script>
+    <script src="js/components/GifPet.js?v=scanfast1"></script>
+    <script src="js/components/RetrieverSprite.js?v=scanfast1"></script>
+    <script src="js/components/CatAgent.js?v=scanfast1"></script>
+    <script src="js/mini.js?v=wander1"></script>
+    <script src="js/app.js?v=btnspace1"></script>
   </body>
 </html>

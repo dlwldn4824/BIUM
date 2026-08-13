@@ -52,7 +52,9 @@
       "target": [
         {
           "target": "dir",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ],
       "extendInfo": {
@@ -66,5 +68,8 @@
   "devDependencies": {
     "electron": "^37.2.6",
     "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "imapflow": "^1.7.0"
   }
 }

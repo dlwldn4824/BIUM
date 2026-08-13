@@ -1,10 +1,11 @@
 # BIUM — my home
 
 > 메뉴바에서 여는 **작은 디지털 집**.  
-> 바탕화면 펫이 Mac · Windows · Drive · Gmail을 돌아다니며  
-> **완전 동일 · 비슷한 사진 · 재확인 문서**와 정리할 메일을 묶어 추천합니다.
+> 바탕화면 펫이 Mac · Drive · Gmail · 네이버 메일을 돌아다니며  
+> **완전 동일 · 비슷한 사진 · 메일 정리 후보**를 묶어 추천합니다.
 
-macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
+macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤  
+GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 
 ---
 
@@ -17,49 +18,52 @@ macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
 
 ![Mini — Cozy Home](docs/screenshots/01-mini-cozy.png)
 
-- **정리 후보** — 지금 비울 수 있을 법한 용량 요약  
-- **새로 발견** — 클릭하면 3등급 허브(완전 동일 / 비슷한 사진 / 재확인 문서)  
-- **연결된 기기** — MacBook / Windows / Drive 등 연결 상태  
+- **정리 후보** — 지금 비울 수 있을 법한 용량 요약 (클릭 시 탄소·비용 추정치)
+- **새로 발견** — 중복 · 비슷한 사진 · 메일 등 발견 허브
+- **연결된 기기** — MacBook / Drive / Gmail / 네이버 등 (수에 따라 창 높이 조절)
+- **서식지** — 강아지·고양이가 방 안을 돌아다님
 - **탐색 시작** — 바탕화면 펫이 공간을 돌아다니며 스캔
 
 ---
 
-### 2) 설정 — 테마 · 펫 · 바탕화면
+### 2) 설정 — 테마 · 펫 · Google · 네이버
 
-톱니바퀴에서 테마, 데스크톱 펫 on/off, 캐릭터를 고릅니다.
+톱니바퀴에서 테마, 데스크톱 펫, Google OAuth, 네이버 IMAP을 설정합니다.
 
 ![설정](docs/screenshots/02-settings.png)
 
 | 항목 | 설명 |
 |------|------|
-| **Cozy Home** | 따뜻한 크림 톤 |
-| **Midnight** | 블루 · 블랙 모던 (+ 전용 방 배경) |
-| **노트북에서 돌아다니기** | 바탕화면 펫 표시 on/off |
-| **Pet** | Neko(고전 고양이) / Golden Puppy |
+| **Cozy Home / Midnight** | 크림 톤 · 블루·블랙 모던 |
+| **노트북에서 돌아다니기** | 바탕화면 펫 on/off |
+| **Pet** | Neko / Golden Puppy (서식지에는 둘 다 배회) |
+| **Google 연결** | Desktop Client ID → Drive·Gmail OAuth |
+| **Gmail 정리** | 스팸 · 90일+ 안읽음 **실API** 추천 |
+| **네이버 메일** | IMAP + 앱 비밀번호 · 오래된 첨부 MD5 |
 
 ---
 
 ### 3) Mini 홈 — Midnight
 
-블루·블랙 모던 테마. 방 일러스트도 Midnight 전용 배경으로 바뀝니다.
+블루·블랙 모던 테마. 방 일러스트·창 배경색도 Midnight에 맞춥니다.
 
 ![Mini — Midnight](docs/screenshots/03-mini-midnight.png)
 
 ---
 
-### 4) 새로 발견 → 3등급 재정리
+### 4) 새로 발견 → 정리 허브
 
-**새로 발견 N건**을 누르면 신뢰도별로 나뉩니다.
+**새로 발견 N건**을 누르면 후보별로 나뉩니다.
 
 ![발견한 항목 — 중복 파일](docs/screenshots/04-findings-duplicates.png)
 
-| 등급 | 의미 | 사용자 선택 |
+| 종류 | 의미 | 사용자 선택 |
 |------|------|-------------|
-| **확실함** | 해시가 같은 완전 동일 | 로컬 Desktop에 하나만 남기기 |
-| **높은 유사도** | 비슷한 사진 스택 | 1장 / 3장 / 모두 보기 |
-| **재확인** | 유사 문서·버전 파일명 | 비교 / 모으기 / 그대로 두기 |
+| **똑같은 파일** | MD5/BLAKE3 완전 동일 · Drive 교차 가능 | **여러 위치에 남기기** 후 나머지 휴지통 |
+| **비슷한 사진** | Czkawka `image` 지각 해시 (Pictures·Desktop) | 1장 / 3장 추천 |
+| **메일 정리** | Gmail 스팸·오래된 안읽음 / 네이버 대용량 첨부 | 추천 확인 |
 
-파이프라인·장기 스택: [`docs/SIMILARITY_PIPELINE.md`](docs/SIMILARITY_PIPELINE.md)
+파이프라인 메모: [`docs/SIMILARITY_PIPELINE.md`](docs/SIMILARITY_PIPELINE.md)
 
 ---
 
@@ -68,12 +72,14 @@ macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
 ```text
 메뉴바 클릭 → Mini 홈
       ↓
-탐색 시작 → 바탕화면 펫이 Mac → Desktop → Drive → Mail 순회
+Google / 네이버 연결 (설정)
       ↓
-완전 동일 · 비슷한 사진 · 재확인 문서 · 메일 후보 수집
+탐색 시작 → 펫이 Mac → Drive → Mail 순회
+      ↓
+완전 동일 · 비슷한 사진 · 메일 후보 수집
 (메타데이터·해시 중심, 파일 본문 미전송)
       ↓
-새로 발견 → 3등급 허브에서 사용자가 결정
+남길 위치 다중 선택 → 로컬 ~/.Trash / Drive trash
 ```
 
 ---
@@ -106,6 +112,34 @@ npx --yes serve -l 5173 .
 # http://localhost:5173
 ```
 
+### Google / Gmail 실연결
+
+1. Google Cloud Desktop OAuth Client ID  
+2. **Drive API** · **Gmail API** 사용 설정  
+3. BIUM 설정 → Google로 로그인 / Gmail 연결  
+
+### 네이버 메일
+
+1. 메일 설정에서 IMAP 사용함  
+2. 2단계 인증 **앱 비밀번호**  
+3. BIUM 설정 → 네이버로 연결  
+
+---
+
+## 사내 KPI 대시보드 (웹)
+
+조직 단위 **데이터 절감 · 비용 · 다음 달 기대치** 프로토타입:
+
+```bash
+cd digital-home-prototype/org-dashboard
+npx --yes serve -p 5177
+# http://localhost:5177
+```
+
+- 데모 스키마: `org-dashboard/data/sample.json`  
+- BIUM 절감 공식과 동일 오더 (`GB × 36000/8.7` 원/년, `0.04 kgCO₂e/GB·년`)  
+- 자세한 설명: [`org-dashboard/README.md`](digital-home-prototype/org-dashboard/README.md)
+
 ---
 
 ## 사용한 오픈소스
@@ -119,42 +153,37 @@ npx --yes serve -l 5173 .
 |----------|----------|------|
 | [Electron](https://github.com/electron/electron) | MIT | macOS 메뉴바 앱 · Desktop Pet 창 |
 | [electron-builder](https://github.com/electron-userland/electron-builder) | MIT | `.app` 패키징 (`npm run dist`) |
+| [imapflow](https://github.com/postalsys/imapflow) | MIT | 네이버 메일 IMAP |
 
 ### 탐색 · 중복 · 에이전트 패턴
 
 | 프로젝트 | 라이선스 | BIUM에서의 역할 |
 |----------|----------|-----------------|
-| [Czkawka](https://github.com/qarmin/czkawka) | MIT | 중복 탐색 CLI (`vendor/bin/czkawka_cli`) · size → hash 그룹 아이디어 |
-| [imagededup](https://github.com/idealo/imagededup) | Apache-2.0 | 사진 near-duplicate 훅 자리 (해커톤은 fixture) |
-| [Apache Tika](https://tika.apache.org/) | Apache-2.0 | 문서 텍스트 추출 훅 자리 (해커톤은 파일명 휴리스틱) |
+| [Czkawka](https://github.com/qarmin/czkawka) | MIT | 중복 `dup` + 유사 이미지 `image` CLI |
+| [imagededup](https://github.com/idealo/imagededup) | Apache-2.0 | 사진 near-duplicate 장기 훅 자리 |
+| [Apache Tika](https://tika.apache.org/) | Apache-2.0 | 문서 텍스트 추출 훅 자리 |
 | [Sentence Transformers](https://www.sbert.net/) | Apache-2.0 | 문서 임베딩 유사도 훅 자리 |
-| [LocalSend](https://github.com/localsend/localsend) / [protocol](https://github.com/localsend/protocol) | MIT | LAN 기기 발견 아이디어만 (파일 전송 API 미사용) → `electron/peers/lanPeer.js` |
-| [WindowPet](https://github.com/SeakMengs/WindowPet) | MIT | 투명·always-on-top·작은 창 이동 패턴 → `electron/desktopPet.js` |
-| [OpenPet](https://github.com/X-T-E-R/OpenPet) | — | Agent 이벤트 → 펫 행동 매핑 → `electron/agentEvents.js` |
+| [LocalSend](https://github.com/localsend/localsend) / [protocol](https://github.com/localsend/protocol) | MIT | LAN 기기 발견 아이디어 → `electron/peers/lanPeer.js` |
+| [WindowPet](https://github.com/SeakMengs/WindowPet) | MIT | 투명·always-on-top 패턴 → `electron/desktopPet.js` |
+| [OpenPet](https://github.com/X-T-E-R/OpenPet) | — | Agent 이벤트 → 펫 행동 → `electron/agentEvents.js` |
 
 ### 펫 · 스프라이트
 
 | 프로젝트 | 라이선스 | BIUM에서의 역할 |
 |----------|----------|-----------------|
-| [crgimenes/neko](https://github.com/crgimenes/neko) | BSD-2-Clause | 고전 Neko 스프라이트 시트 |
-| [adryd325/oneko.js](https://github.com/adryd325/oneko.js) | — | oneko 8×4 / 32px 그리드 레이아웃 참고 |
-| OpenPets / Petx / WindowPet 계열 에셋 참고 | 각 저장소 라이선스 | Golden Puppy 프레임 구성 참고 (`assets/pets/`) |
+| [crgimenes/neko](https://github.com/crgimenes/neko) | BSD-2-Clause | 고전 Neko 스프라이트 |
+| [adryd325/oneko.js](https://github.com/adryd325/oneko.js) | — | oneko 8×4 / 32px 그리드 참고 |
+| PawPal 계열 GIF | 각 저장소 라이선스 | Golden Puppy (`assets/pets/pawpal-puppy`) |
 
-크레딧 상세: [`digital-home-prototype/assets/pets/neko/CREDITS.md`](digital-home-prototype/assets/pets/neko/CREDITS.md)
+크레딧: [`digital-home-prototype/assets/pets/neko/CREDITS.md`](digital-home-prototype/assets/pets/neko/CREDITS.md)
 
-### 폰트 (UI)
-
-| 폰트 | 제공 | 용도 |
-|------|------|------|
-| [IBM Plex Sans KR](https://fonts.google.com/specimen/IBM+Plex+Sans+KR) | SIL OFL | Mini / 설정 UI 본문 |
-| [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) | SIL OFL | 픽셀 홈(레거시) 타이틀 |
-
-### 클라우드 API (프로토콜)
+### 클라우드 API
 
 | API | 용도 |
 |-----|------|
-| Google Drive API | 대용량·메타데이터 후보 (본문 미다운로드) |
-| Gmail API | 스팸·오래된 안읽음 **정리 추천** (해커톤 데모 포함) |
+| Google Drive API | 메타데이터 · MD5 · trash (본문 미업로드) |
+| Gmail API | 스팸 · 90일+ 안읽음 건수 추천 |
+| 네이버 IMAP | 오래된 첨부 후보 · MD5 교차 |
 
 ---
 
@@ -162,18 +191,20 @@ npx --yes serve -l 5173 .
 
 ```text
 .
-├── digital-home-prototype/   # BIUM macOS 앱 (Electron)
-│   ├── electron/             # main, tray, pet, scan, peers
-│   ├── js/ css/              # Mini + Home UI
-│   ├── assets/               # 펫 PNG, 방 배경
-│   └── vendor/bin/           # czkawka_cli 등
+├── digital-home-prototype/     # BIUM macOS 앱 (Electron)
+│   ├── electron/               # tray, pet, federated scan, OAuth, IMAP
+│   │   ├── actions/keepOne.js  # 다중 위치 keep → trash
+│   │   └── providers/          # google.js, naverImap.js
+│   ├── org-dashboard/          # 사내 절감 KPI 웹 프로토타입
+│   ├── js/ css/                # Mini + Home UI
+│   ├── assets/                 # 펫 PNG/GIF, 방 배경
+│   └── vendor/bin/             # czkawka_cli
 ├── docs/
-│   ├── screenshots/          # README 캡처
+│   ├── screenshots/
 │   ├── OSS_COMPOSITION.md
-│   ├── SIMILARITY_PIPELINE.md # 3등급 유사도 파이프라인
-│   └── 피피티_개요.md         # 발표용 내러티브
-├── digital-diet/             # 초기 실험 코드
-└── README.md                 # ← 지금 문서
+│   ├── SIMILARITY_PIPELINE.md
+│   └── 피피티_개요.md
+└── README.md
 ```
 
 ---

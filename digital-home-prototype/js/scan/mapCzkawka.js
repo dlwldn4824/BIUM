@@ -16,11 +16,13 @@ window.BiumScanMap = {
   },
 
   keepIdFor(filePath, room, i) {
-    if (room === "cloud" || /GoogleDrive|Google Drive|CloudStorage/i.test(filePath)) {
+    const p = String(filePath || "");
+    if (p.startsWith("naver:") || /naver:/i.test(p)) return "naver";
+    if (room === "cloud" || /GoogleDrive|Google Drive|CloudStorage/i.test(p)) {
       return "gdrive";
     }
-    if (room === "desktop" || /\/Desktop\b/i.test(filePath)) return "desktop";
-    if (room === "laptop" || /Downloads|Documents/i.test(filePath)) return "laptop";
+    if (room === "desktop" || /\/Desktop\b/i.test(p)) return "desktop";
+    if (room === "laptop" || /Downloads|Documents/i.test(p)) return "laptop";
     if (room === "mail") return "mail";
     return `keep-${i}`;
   },
@@ -44,11 +46,13 @@ window.BiumScanMap = {
           "Desktop에 남기면 Drive 복제를 줄여 탄소·구독 부담을 낮출 수 있어요.",
       };
     }
-    if (keepId === "mail") {
+    if (keepId === "mail" || keepId === "naver") {
       return {
-        keepLabel: "Mail",
-        keepDesc: "메일 첨부 보관",
+        keepLabel: "네이버 메일",
+        keepDesc: "메일 첨부 보관 · 정리 시 메일함에서 직접",
         recommended: false,
+        reason:
+          "메일 첨부에 남기면 용량이 계속 쌓여요. 로컬·Drive 중 한곳에 두는 걸 추천해요.",
       };
     }
     return {
@@ -70,6 +74,15 @@ window.BiumScanMap = {
         f.reason =
           "Drive에 남기면 클라우드에 계속 쌓여요. 탄소 절감을 위해 로컬을 추천해요.";
       }
+      if (
+        f.keepId === "naver" ||
+        f.keepId === "mail" ||
+        f.deviceId === "naver-mail"
+      ) {
+        f.keepDesc = "메일 첨부 보관 · 정리 시 메일함에서 직접";
+        f.reason =
+          "메일 첨부에 남기면 용량이 계속 쌓여요. 로컬·Drive 중 한곳에 두는 걸 추천해요.";
+      }
     }
     const pick =
       files.find(
@@ -79,7 +92,12 @@ window.BiumScanMap = {
         (f) => f.keepId === "laptop" || f.deviceId === "mac-local"
       ) ||
       files.find(
-        (f) => f.keepId !== "gdrive" && f.deviceId !== "gdrive" && f.keepId !== "mail"
+        (f) =>
+          f.keepId !== "gdrive" &&
+          f.deviceId !== "gdrive" &&
+          f.keepId !== "mail" &&
+          f.keepId !== "naver" &&
+          f.deviceId !== "naver-mail"
       );
     if (pick) {
       pick.recommended = true;
@@ -159,9 +177,13 @@ window.BiumScanMap = {
       engine: group.engine || meta.engine || "czkawka",
       matchNote:
         group.reason ||
-        (String(group.engine || meta.engine || "").includes("node")
-          ? "내용 일치 (부분 해시)"
-          : "내용 일치 100% (BLAKE3)"),
+        (String(group.contentKey || "").startsWith("md5:")
+          ? "내용 일치 100% (MD5 · Drive 교차)"
+          : String(group.engine || meta.engine || "").includes("node")
+            ? "내용 일치 (부분 해시)"
+            : String(group.engine || meta.engine || "").includes("index")
+              ? "내용 일치 (통합 인덱스)"
+              : "내용 일치 100% (BLAKE3)"),
       reclaimBytes: group.reclaimBytes,
     });
   },
@@ -189,20 +211,25 @@ window.BiumScanMap = {
         name,
         place: deviceLabel || this.placeFor(filePath, room),
         size: f.sizeLabel || `${mb}MB`,
+        sizeBytes: Number(f.size) || size || 0,
         keepId:
           f.deviceId === "windows-peer"
             ? "desktop"
             : f.deviceId === "gdrive"
               ? "gdrive"
-              : keepId,
+              : f.deviceId === "naver-mail"
+                ? "naver"
+                : keepId,
         keepLabel:
           f.deviceId === "windows-peer"
             ? "Desktop"
             : f.deviceId === "gdrive"
               ? "Google Drive"
-              : f.deviceId === "mac-local"
-                ? "MacBook"
-                : km.keepLabel,
+              : f.deviceId === "naver-mail"
+                ? "네이버 메일"
+                : f.deviceId === "mac-local"
+                  ? "MacBook"
+                  : km.keepLabel,
         keepDesc: km.keepDesc,
         recommended: false,
         reason: km.reason,
@@ -213,13 +240,15 @@ window.BiumScanMap = {
           room ||
           (f.deviceId === "gdrive"
             ? "cloud"
-            : f.deviceId === "windows-peer"
-              ? "desktop"
-              : keepId === "gdrive"
-                ? "cloud"
-                : keepId === "mail"
-                  ? "mail"
-                  : keepId),
+            : f.deviceId === "naver-mail" || f.deviceId === "gmail"
+              ? "mail"
+              : f.deviceId === "windows-peer"
+                ? "desktop"
+                : keepId === "gdrive"
+                  ? "cloud"
+                  : keepId === "mail" || keepId === "naver"
+                    ? "mail"
+                    : keepId),
       };
     });
 
@@ -253,10 +282,9 @@ window.BiumScanMap = {
     }
     if (mapped.reclaimMb && window.DigitalHomeData.summary) {
       const gb = +(mapped.reclaimMb / 1024).toFixed(1);
-      window.DigitalHomeData.summary.cleanableGb = Math.max(
-        window.DigitalHomeData.summary.cleanableGb || 0,
-        gb
-      );
+      // Don't shrink a fuller scan summary; only raise when empty/small
+      const prev = Number(window.DigitalHomeData.summary.cleanableGb) || 0;
+      if (prev < gb) window.DigitalHomeData.summary.cleanableGb = gb;
     }
   },
 };

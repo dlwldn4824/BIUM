@@ -7,14 +7,29 @@ const { app } = require("electron");
 
 const FILE = () => path.join(app.getPath("userData"), "bium-index.json");
 
-/** @type {{ devices: Record<string, object>, entries: object[], mailCleanup: object|null, updatedAt: string|null }} */
-let mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
+/** @type {{ devices: Record<string, object>, entries: object[], mailCleanup: object|null, summary: object|null, updatedAt: string|null }} */
+let mem = {
+  devices: {},
+  entries: [],
+  mailCleanup: null,
+  summary: null,
+  updatedAt: null,
+};
 
 function load() {
   try {
     mem = JSON.parse(fs.readFileSync(FILE(), "utf8"));
+    if (!mem.devices) mem.devices = {};
+    if (!mem.entries) mem.entries = [];
+    if (!("summary" in mem)) mem.summary = null;
   } catch {
-    mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
+    mem = {
+      devices: {},
+      entries: [],
+      mailCleanup: null,
+      summary: null,
+      updatedAt: null,
+    };
   }
   return mem;
 }
@@ -56,18 +71,49 @@ function registerDevice(device) {
       device.totalBytes !== undefined
         ? device.totalBytes
         : (prev?.totalBytes ?? null),
+    demo:
+      device.demo !== undefined
+        ? !!device.demo
+        : isNew
+          ? false
+          : !!prev?.demo,
     lastScanAt: device.lastScanAt ?? prev?.lastScanAt ?? null,
   };
   save();
   return mem.devices[device.id];
 }
 
-function setDeviceQuota(deviceId, usedBytes, totalBytes) {
+function setDeviceQuota(deviceId, usedBytes, totalBytes, opts = {}) {
   load();
   if (!mem.devices[deviceId]) return;
   mem.devices[deviceId].usedBytes = usedBytes;
   mem.devices[deviceId].totalBytes = totalBytes;
+  if (opts.demo !== undefined) mem.devices[deviceId].demo = !!opts.demo;
   save();
+}
+
+function setDeviceDemo(deviceId, demo) {
+  load();
+  if (!mem.devices[deviceId]) return;
+  mem.devices[deviceId].demo = !!demo;
+  save();
+}
+
+function setSummary(summary) {
+  load();
+  mem.summary = summary
+    ? {
+        ...summary,
+        updatedAt: new Date().toISOString(),
+      }
+    : null;
+  save();
+  return mem.summary;
+}
+
+function getSummary() {
+  load();
+  return mem.summary || null;
 }
 
 function setDeviceConnected(deviceId, connected) {
@@ -159,6 +205,7 @@ function findCrossDeviceDuplicates() {
 function roomGuess(f) {
   if (f.deviceId === "gdrive") return "cloud";
   if (f.deviceId === "windows-peer") return "desktop";
+  if (f.deviceId === "naver-mail" || f.deviceId === "gmail") return "mail";
   if (f.room) return f.room;
   return "laptop";
 }
@@ -198,7 +245,13 @@ function getMailCleanup() {
 }
 
 function clear() {
-  mem = { devices: {}, entries: [], mailCleanup: null, updatedAt: null };
+  mem = {
+    devices: {},
+    entries: [],
+    mailCleanup: null,
+    summary: null,
+    updatedAt: null,
+  };
   save();
 }
 
@@ -210,12 +263,14 @@ function snapshot() {
     entryCount: mem.entries.length,
     devices: listDevices(),
     mailCleanup: mem.mailCleanup || null,
+    summary: mem.summary || null,
   };
 }
 
 module.exports = {
   registerDevice,
   setDeviceQuota,
+  setDeviceDemo,
   setDeviceConnected,
   upsertDeviceEntries,
   findCrossDeviceDuplicates,
@@ -223,6 +278,8 @@ module.exports = {
   listEntries,
   setMailCleanup,
   getMailCleanup,
+  setSummary,
+  getSummary,
   clear,
   snapshot,
   formatBytes,

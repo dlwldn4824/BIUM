@@ -382,11 +382,151 @@ async function scanDuplicatesWithCzkawka(options = {}) {
   };
 }
 
+/**
+ * Parse czkawka `image` pretty/compact JSON.
+ * Shape: [ [ {path,size,width,height,modified_date,difference}, ... ], ... ]
+ */
+function parseSimilarImagesJson(raw) {
+  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!Array.isArray(data)) return [];
+  return data.filter((g) => Array.isArray(g) && g.length >= 2);
+}
+
+/**
+ * Similar-image scan via czkawka perceptual hashes (Gradient / hash_size 16).
+ */
+async function scanSimilarImagesWithCzkawka(options = {}) {
+  const directories = options.directories || [];
+  const binary = resolveBinary(options.binary);
+  if (!binary) {
+    const err = new Error(
+      "czkawka_cli not found. Run scripts/fetch-czkawka.sh or set CZKAWKA_CLI."
+    );
+    err.code = "CZKAWKA_NOT_FOUND";
+    throw err;
+  }
+
+  const existingDirs = [];
+  for (const dir of directories) {
+    try {
+      await fs.access(dir);
+      existingDirs.push(dir);
+    } catch {
+      /* skip */
+    }
+  }
+  if (!existingDirs.length) {
+    return {
+      groups: [],
+      engine: "czkawka-image",
+      binary,
+      empty: true,
+    };
+  }
+
+  const outFile = path.join(
+    os.tmpdir(),
+    `bium-czkawka-image-${Date.now()}.json`
+  );
+  const excludedDirectories = options.excludedDirectories || [];
+  const excludedItems = options.excludedItems || [
+    "*/node_modules/*",
+    "*/.git/*",
+    "*/.Trash/*",
+    "*/Trash/*",
+    "*.photoslibrary/*",
+    "*/Photo Library.photoslibrary/*",
+    "*/Photos Library.photoslibrary/*",
+  ];
+  const minSize = options.minSize ?? 20_000;
+  const maxDifference = options.maxDifference ?? 10;
+  const hashSize = options.hashSize ?? 16;
+  const hashAlg = options.hashAlg || "Gradient";
+
+  const args = ["image"];
+  for (const dir of existingDirs) args.push("-d", dir);
+  for (const dir of excludedDirectories) args.push("-e", dir);
+  for (const item of excludedItems) args.push("-E", item);
+  args.push(
+    "-m",
+    String(minSize),
+    "-s",
+    String(maxDifference),
+    "-c",
+    String(hashSize),
+    "-g",
+    hashAlg,
+    "-x",
+    "IMAGE",
+    "-p",
+    outFile,
+    "-N",
+    "-M",
+    "-W"
+  );
+
+  const result = await runCli(binary, args, {
+    timeoutMs: options.timeoutMs || 120000,
+  });
+
+  let rawText = "";
+  let hasOutFile = false;
+  try {
+    rawText = await fs.readFile(outFile, "utf8");
+    hasOutFile = true;
+  } catch {
+    rawText = result.stdout;
+  }
+  try {
+    await fs.unlink(outFile);
+  } catch {
+    /* ignore */
+  }
+
+  if (
+    !hasOutFile &&
+    result.code !== 0 &&
+    /error:|unexpected argument|USAGE:/i.test(result.stderr)
+  ) {
+    throw new Error(
+      `czkawka image failed: ${result.stderr.trim().slice(0, 400)}`
+    );
+  }
+
+  if (!rawText || !rawText.trim()) {
+    return {
+      groups: [],
+      engine: "czkawka-image",
+      binary,
+      code: result.code,
+    };
+  }
+
+  let rawGroups;
+  try {
+    rawGroups = parseSimilarImagesJson(rawText);
+  } catch (err) {
+    throw new Error(
+      `czkawka image JSON parse failed: ${err.message}; stderr=${result.stderr.slice(0, 200)}`
+    );
+  }
+
+  return {
+    groups: rawGroups,
+    engine: "czkawka-image",
+    binary,
+    code: result.code,
+    stderr: result.stderr,
+  };
+}
+
 module.exports = {
   resolveBinary,
   parseDuplicatesJson,
+  parseSimilarImagesJson,
   mapGroupsToDiet,
   scanDuplicatesWithCzkawka,
+  scanSimilarImagesWithCzkawka,
   roomForPath,
   formatBytes,
   VENDORED,

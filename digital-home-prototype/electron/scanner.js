@@ -58,6 +58,46 @@ async function hashFile(filePath, maxBytes = 8 * 1024 * 1024) {
   }
 }
 
+/** Full-file MD5 — matches Google Drive `md5Checksum` for cross-device dups. */
+async function md5File(filePath) {
+  const hash = crypto.createHash("md5");
+  const stream = require("fs").createReadStream(filePath);
+  await new Promise((resolve, reject) => {
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", resolve);
+    stream.on("error", reject);
+  });
+  return hash.digest("hex");
+}
+
+/**
+ * Compute MD5 for a list of local paths (concurrency-limited).
+ * @param {string[]} paths
+ * @param {{ limit?: number, concurrency?: number }} [opts]
+ */
+async function md5Many(paths, opts = {}) {
+  const limit = Math.max(1, opts.limit || 80);
+  const concurrency = Math.max(1, opts.concurrency || 4);
+  const list = [...new Set((paths || []).filter(Boolean))].slice(0, limit);
+  const out = new Map();
+  let i = 0;
+  async function worker() {
+    while (i < list.length) {
+      const idx = i++;
+      const p = list[idx];
+      try {
+        out.set(p, await md5File(p));
+      } catch {
+        /* unreadable */
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, list.length) }, () => worker())
+  );
+  return out;
+}
+
 async function walk(dir, files, limit, depth = 0) {
   if (files.length >= limit || depth > 6) return;
 
@@ -192,8 +232,23 @@ async function findDuplicatesNode(files) {
         sizeLabel: formatBytes(f.size),
         room: roomForPath(f.path),
         source: "local",
+        hash: f.hash,
+        hashAlg: "sha256-partial",
       })),
     });
+  }
+
+  // Attach full-file MD5 so Drive md5Checksum can join the same contentKey.
+  for (const g of duplicateGroups) {
+    for (const f of g.files) {
+      try {
+        f.md5 = await md5File(f.path);
+        f.hash = f.md5;
+        f.hashAlg = "md5";
+      } catch {
+        /* keep sha256-partial */
+      }
+    }
   }
 
   return { duplicateGroups, duplicateBytes, engine: "node" };
@@ -396,4 +451,11 @@ async function scanLocalLibrary(options = {}) {
   };
 }
 
-module.exports = { scanLocalLibrary, formatBytes, findDuplicates };
+module.exports = {
+  scanLocalLibrary,
+  formatBytes,
+  findDuplicates,
+  hashFile,
+  md5File,
+  md5Many,
+};

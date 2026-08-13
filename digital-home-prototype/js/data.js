@@ -4,12 +4,13 @@ window.DigitalHomeData = {
   isMock: true,
   overallClean: 63,
   summary: {
-    usedGb: 356,
-    totalGb: 494,
-    cleanableGb: 8.7,
-    deltaGb: 8.2,
-    scannedFiles: 12842,
-    savingKrw: 36000, // home/event only — not on Mini
+    usedGb: null,
+    totalGb: null,
+    cleanableGb: 0,
+    findCount: 0,
+    deltaGb: 0,
+    scannedFiles: 0,
+    savingKrw: 36000, // impact sheet scale base only
   },
   effects: { spaceGb: 0, costKrw: 0, files: 0 },
   rooms: {
@@ -19,126 +20,25 @@ window.DigitalHomeData = {
     cloud: { id: "cloud", label: "Cloud Room", x: "72%", y: "68%", clean: 48, used: 120, total: 200 },
     mail: { id: "mail", label: "Mailbox", x: "50%", y: "88%", clean: 60, used: 12, total: 15 },
   },
-  /** Connected spaces shown in Mini (order matters) */
+  /** Connected spaces — filled live from getConnections */
   spaces: [
-    { id: "mac-local", name: "MacBook", used: 275, total: 494, icon: "device", connected: true },
-    { id: "windows-peer", name: "Windows Desktop", used: 421, total: 1024, icon: "device", connected: true },
-    { id: "gdrive", name: "Google Drive", used: 78, total: 100, icon: "cloud", connected: true },
-    { id: "onedrive", name: "OneDrive", used: null, total: null, icon: "cloud", connected: false },
+    { id: "mac-local", name: "MacBook", used: null, total: null, icon: "device", connected: true },
   ],
   finds: [
-    { id: "duplicate", label: "똑같은 파일", icon: "⧉", gb: 0.8, count: 3 },
-    { id: "similar-photos", label: "비슷한 사진", icon: "🖼", gb: 0.04, count: 8 },
-    { id: "similar-docs", label: "비슷한 문서", icon: "📄", gb: 0, count: 4 },
-    { id: "cold-stale", label: "오래 안 연 폴더", icon: "☾", gb: 36.4, count: 8291 },
-    { id: "mail", label: "메일 정리", icon: "✉", gb: 2.8, count: 1630 },
+    { id: "duplicate", label: "똑같은 파일", icon: "⧉", gb: 0, count: 0 },
+    { id: "similar-photos", label: "비슷한 사진", icon: "🖼", gb: 0, count: 0 },
+    { id: "similar-docs", label: "비슷한 문서", icon: "📄", gb: 0, count: 0 },
+    { id: "cold-stale", label: "오래 안 연 폴더", icon: "☾", gb: 0, count: 0 },
+    { id: "mail", label: "메일 정리", icon: "✉", gb: 0, count: 0 },
   ],
   /** Populated when Gmail is connected */
   mailCleanup: null,
   /** Lifecycle candidates: exact → similar → review → cold hibernate */
   candidates: {
     exact: { groups: [] },
-    similarPhotos: {
-      groups: [
-        {
-          id: "photo-stack-jeju",
-          kind: "similar-photo",
-          confidence: "high",
-          title: "비슷한 사진 8장",
-          reason: "같은 장소에서 비슷한 구도로 촬영된 사진이에요.",
-          count: 8,
-          reclaimBytes: 44040192,
-          keepOptions: [1, 3, "all"],
-          pickHint: {
-            sharpest: "IMG_3324.jpg",
-            eyesOpen: true,
-            highestRes: "IMG_3324.jpg",
-          },
-          explain:
-            "같은 장소에서 연속 촬영된 사진 8장으로 보여요. 선명도·해상도 기준으로 IMG_3324.jpg를 남기면 약 42MB를 확보할 수 있어요.",
-          files: [
-            { name: "IMG_3317.jpg", place: "MacBook / Pictures/Jeju", size: "5.2MB" },
-            { name: "IMG_3318.jpg", place: "MacBook / Pictures/Jeju", size: "5.4MB" },
-            { name: "IMG_3319.jpg", place: "MacBook / Pictures/Jeju", size: "5.1MB" },
-            { name: "IMG_3320.jpg", place: "MacBook / Pictures/Jeju", size: "5.6MB" },
-            { name: "IMG_3321.jpg", place: "MacBook / Pictures/Jeju", size: "5.3MB" },
-            { name: "IMG_3322.jpg", place: "MacBook / Pictures/Jeju", size: "5.0MB" },
-            { name: "IMG_3323.jpg", place: "MacBook / Pictures/Jeju", size: "5.5MB" },
-            { name: "IMG_3324.jpg", place: "MacBook / Pictures/Jeju", size: "5.9MB" },
-          ],
-        },
-      ],
-    },
-    similarDocs: {
-      groups: [
-        {
-          id: "doc-chic-deck",
-          kind: "similar-doc",
-          confidence: "review",
-          title: "비슷한 발표 자료 4개",
-          reason: "완전히 같은 파일은 아니에요. 버전 파일일 가능성이 높아요.",
-          similarity: 0.91,
-          count: 4,
-          reclaimBytes: 0,
-          actions: ["compare", "gather", "keep"],
-          explain:
-            "이 4개 파일은 같은 프로젝트의 여러 버전으로 보입니다(유사도 약 91%). 가장 최근으로 보이는 파일은 CHIC_발표_진짜최종.pptx예요. 완전히 같다고 단정하지 말고 비교해 보세요.",
-          files: [
-            { name: "CHIC_발표.pptx", place: "MacBook / Documents", size: "12MB", modified: "2026-07-02" },
-            { name: "CHIC_발표_최종.pptx", place: "MacBook / Documents", size: "13MB", modified: "2026-07-18" },
-            { name: "CHIC_발표_진짜최종.pptx", place: "Desktop / Documents", size: "14MB", modified: "2026-08-01" },
-            { name: "CHIC_발표_수정본.pptx", place: "Google Drive / 학교", size: "13MB", modified: "2026-07-22" },
-          ],
-        },
-      ],
-    },
-    coldStale: {
-      groups: [
-        {
-          id: "cold-drive-jeju-2018",
-          kind: "stale",
-          confidence: "cold",
-          title: "여행 사진 · 오래 안 연 폴더",
-          reason:
-            "이 폴더, 2년 8개월 동안 열지 않았어요. 삭제하기 불안하다면 잠재우기로 보관할까요?",
-          idleLabel: "2년 8개월",
-          count: 8291,
-          reclaimBytes: 39093780480,
-          place: "Google Drive / 여행/제주_2018",
-          actions: ["leave", "hibernate", "clean"],
-          carbonDefer: true,
-          explain:
-            "2년 8개월 동안 거의 쓰지 않은 데이터 8,291개(36.4GB)예요. 지우지 않고 잠재우면 저빈도 보관으로 옮길 수 있어요.",
-          files: [
-            {
-              name: "제주_2018 (폴더)",
-              place: "Google Drive / 여행",
-              size: "36.4GB",
-              lastOpened: "2023-11-02",
-              itemCount: 8291,
-            },
-            {
-              name: "IMG_1042.JPG",
-              place: "Google Drive / 여행/제주_2018",
-              size: "4.8MB",
-              lastOpened: "2023-11-02",
-            },
-            {
-              name: "IMG_1888.JPG",
-              place: "Google Drive / 여행/제주_2018",
-              size: "5.1MB",
-              lastOpened: "2023-11-02",
-            },
-            {
-              name: "드론_일몰.mp4",
-              place: "Google Drive / 여행/제주_2018",
-              size: "1.2GB",
-              lastOpened: "2023-10-18",
-            },
-          ],
-        },
-      ],
-    },
+    similarPhotos: { groups: [] },
+    similarDocs: { groups: [] },
+    coldStale: { groups: [] },
   },
   agent: {
     line: "지금은 쉬고 있어요",

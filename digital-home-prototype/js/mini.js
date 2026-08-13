@@ -11,6 +11,7 @@ window.BiumMini = (() => {
     gdrive: "☁",
     onedrive: "☁",
     gmail: "✉",
+    "naver-mail": "✉",
     mail: "✉",
   };
   const BAR_COLOR = {
@@ -21,11 +22,15 @@ window.BiumMini = (() => {
     gdrive: "#7eb6e8",
     onedrive: "#7eb6e8",
     gmail: "#e89a9a",
+    "naver-mail": "#e89a9a",
     mail: "#e89a9a",
   };
 
   /** @type {any} */
-  let pet = null;
+  let pet = null; // primary (dog) — kept for older callers
+  /** @type {Array<{ id: string, el: HTMLElement, pet: any, x: number, y: number, timer: any }>} */
+  let habitatPets = [];
+  let wanderOn = false;
   let scanning = false;
   let lastScanAt = null;
   let foundCount = 0;
@@ -46,6 +51,12 @@ window.BiumMini = (() => {
     const el = $("miniLocStatus");
     if (!el) return;
     const text = (line || "").trim();
+    // During scan, progress panel owns the copy
+    if (scanning && $("miniScanProgress") && !$("miniScanProgress").hidden) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
     // Hide idle home status — pet + tagline already say enough
     if (!text || /집에서 쉬는/.test(text)) {
       el.hidden = true;
@@ -56,14 +67,142 @@ window.BiumMini = (() => {
     el.textContent = text;
   }
 
+  let scanPct = 0;
+  function setScanProgress(pct, label) {
+    const wrap = $("miniScanProgress");
+    const fill = $("miniScanBarFill");
+    const lab = $("miniScanLabel");
+    const habitat = $("miniHabitat");
+    const btn = $("btnMiniScan");
+    if (!wrap) return;
+    if (pct != null && !Number.isNaN(Number(pct))) {
+      scanPct = Math.max(scanPct, Math.max(0, Math.min(100, Number(pct))));
+    }
+    wrap.hidden = false;
+    if (fill) fill.style.setProperty("--p", `${scanPct || 8}%`);
+    if (lab && label) lab.textContent = label;
+    habitat?.classList.add("is-scanning");
+    if (btn) {
+      btn.classList.add("is-scanning");
+      btn.textContent = "탐색 중…";
+      btn.hidden = false;
+    }
+    syncMiniWindowHeight();
+  }
+
+  function endScanProgress() {
+    const wrap = $("miniScanProgress");
+    const habitat = $("miniHabitat");
+    const btn = $("btnMiniScan");
+    if (wrap) wrap.hidden = true;
+    habitat?.classList.remove("is-scanning");
+    scanPct = 0;
+    if (btn) {
+      btn.classList.remove("is-scanning");
+      btn.textContent = "🐾 탐색 시작";
+      if (!locationState?.away) btn.hidden = false;
+    }
+    syncMiniWindowHeight();
+  }
+
   function clearStatus() {
     setStatus("");
   }
 
   function applyAnim(name) {
-    if (!pet) return;
-    if (name === "walk") pet.setState("run");
-    else pet.setState(name);
+    const state = name === "walk" ? "run" : name;
+    for (const slot of habitatPets) {
+      slot.pet?.setState?.(state);
+    }
+    if (!habitatPets.length && pet) {
+      pet.setState(state);
+    }
+    // After a short found/happy beat, resume roaming at home
+    if (state === "found" || state === "happy" || state === "search") {
+      pauseWanderBriefly(1600);
+    } else if (state === "sleep" || state === "idle" || state === "run") {
+      if (!locationState?.away && !scanning) startWander();
+    }
+  }
+
+  function placePet(slot, x, y) {
+    slot.x = x;
+    slot.y = y;
+    slot.el.style.setProperty("--x", `${x.toFixed(1)}%`);
+    slot.el.style.setProperty("--y", `${y.toFixed(1)}%`);
+  }
+
+  function stopWander() {
+    wanderOn = false;
+    for (const slot of habitatPets) {
+      if (slot.timer) {
+        clearTimeout(slot.timer);
+        slot.timer = null;
+      }
+    }
+  }
+
+  function pauseWanderBriefly(ms) {
+    stopWander();
+    setTimeout(() => {
+      if (!locationState?.away && !scanning) startWander();
+    }, ms);
+  }
+
+  function scheduleWander(slot) {
+    if (!wanderOn || !slot?.pet) return;
+    const delay = 900 + Math.random() * 1600;
+    slot.timer = setTimeout(() => stepWander(slot), delay);
+  }
+
+  function stepWander(slot) {
+    if (!wanderOn || locationState?.away || scanning) return;
+    // Floor band inside habitat (leave margin for 64px sprite)
+    const nextX = 4 + Math.random() * 68;
+    const nextY = 2 + Math.random() * 12;
+    const facing = nextX >= slot.x ? "right" : "left";
+    slot.pet.setFacing?.(facing);
+    slot.pet.setState?.("run");
+    placePet(slot, nextX, nextY);
+
+    const walkMs = 850;
+    slot.timer = setTimeout(() => {
+      if (!wanderOn) return;
+      // Short rest: idle / sleep mix
+      const rest = Math.random();
+      if (rest < 0.35) slot.pet.setState?.("sleep");
+      else if (rest < 0.7) slot.pet.setState?.("idle");
+      else slot.pet.setState?.("search");
+      scheduleWander(slot);
+    }, walkMs);
+  }
+
+  function startWander() {
+    if (locationState?.away || scanning) return;
+    if (!habitatPets.length) return;
+    wanderOn = true;
+    for (const slot of habitatPets) {
+      if (slot.timer) clearTimeout(slot.timer);
+      // stagger so they don't sync-step
+      const stagger = slot.id === "cat" ? 400 : 0;
+      slot.timer = setTimeout(() => stepWander(slot), 200 + stagger + Math.random() * 500);
+    }
+  }
+
+  async function sizePetHost(el, instance) {
+    await instance?.ensure?.();
+    if (instance?.atlas) {
+      instance.atlas.scale = Math.max(1, Math.round(64 / (instance.atlas.cell || 32)));
+      instance.atlas._applySize?.();
+    } else if (instance) {
+      instance.size = 64;
+      if (instance.img) {
+        instance.img.style.width = "64px";
+        instance.img.style.height = "64px";
+      }
+    }
+    el.style.width = "64px";
+    el.style.height = "64px";
   }
 
   function discoveryGroupCount() {
@@ -77,10 +216,25 @@ window.BiumMini = (() => {
     return n;
   }
 
+  function applySummary(summary) {
+    if (!summary || !window.DigitalHomeData) return;
+    const s = window.DigitalHomeData.summary || (window.DigitalHomeData.summary = {});
+    if (summary.cleanableGb != null) s.cleanableGb = Number(summary.cleanableGb) || 0;
+    if (summary.findCount != null) s.findCount = Number(summary.findCount) || 0;
+    if (summary.scannedFiles != null) s.scannedFiles = summary.scannedFiles;
+    if (summary.totalReclaimBytes != null) s.totalReclaimBytes = summary.totalReclaimBytes;
+    if (summary.usedGb != null) s.usedGb = summary.usedGb;
+    if (summary.totalGb != null) s.totalGb = summary.totalGb;
+  }
+
   function fillMetrics() {
     const data = window.DigitalHomeData;
-    const clean = data?.summary?.cleanableGb ?? 8.7;
-    if ($("miniCleanable")) $("miniCleanable").textContent = `${fmtGb(clean)}GB`;
+    const clean = Number(data?.summary?.cleanableGb);
+    const el = $("miniCleanable");
+    if (el) {
+      el.textContent =
+        clean > 0 ? `${fmtGb(clean)}GB` : clean === 0 ? "0GB" : "—";
+    }
     refreshFindCount();
   }
 
@@ -107,6 +261,21 @@ window.BiumMini = (() => {
   }
 
   function refreshFindCount() {
+    // Prefer live hub count (all exact groups + other tiers)
+    if (typeof window.BiumApp?.computeFindCount === "function") {
+      const n = window.BiumApp.computeFindCount();
+      if (window.DigitalHomeData?.summary) {
+        window.DigitalHomeData.summary.findCount = n;
+      }
+      setFoundCount(n);
+      return n;
+    }
+    const summary = window.DigitalHomeData?.summary;
+    if (summary && Object.prototype.hasOwnProperty.call(summary, "findCount")) {
+      const n = Math.max(0, Number(summary.findCount) || 0);
+      setFoundCount(n);
+      return n;
+    }
     const n = Math.max(foundCount, discoveryGroupCount());
     setFoundCount(n);
     return n;
@@ -129,20 +298,23 @@ window.BiumMini = (() => {
     if (awayEl) awayEl.hidden = !away;
 
     if (away) {
+      stopWander();
       setStatus(
         snap.exploring
           ? `🐾 지금 ${snap.label || "다른 공간"}을 살펴보는 중...`
           : `🐾 ${snap.label || "다른 공간"}에 있어요`
       );
     } else if (scanning) {
+      stopWander();
       setStatus(snap.statusLine || "🐾 탐색 준비 중...");
     } else {
       clearStatus();
-      applyAnim("sleep");
+      startWander();
     }
 
-    if (scanBtn) scanBtn.hidden = away || scanning;
-    if (summonBtn) summonBtn.hidden = !away;
+    // Keep CTA visible while scanning so "탐색 중…" is obvious
+    if (scanBtn) scanBtn.hidden = scanning ? false : away;
+    if (summonBtn) summonBtn.hidden = scanning ? true : !away;
   }
 
   function updateLastScanLabel() {
@@ -166,35 +338,41 @@ window.BiumMini = (() => {
       "mac-local",
       "windows-peer",
       "gdrive",
+      "naver-mail",
       "gmail",
       "onedrive",
     ];
     const byId = Object.fromEntries(data.spaces.map((s) => [s.id, s]));
+    const extras = data.spaces.filter((s) => !preferred.includes(s.id));
     // Show connected spaces (+ Mac always)
     const rows = preferred
       .map((id) => byId[id])
+      .concat(extras)
       .filter(Boolean)
       .filter((s) => s.id === "mac-local" || s.connected);
 
     list.innerHTML = rows
       .map((s) => {
-        const on = !!s.connected && s.used != null;
-        const total = s.total || 1;
-        const pct = on ? Math.round((s.used / total) * 100) : 0;
+        const hasQuota = s.used != null && s.total != null && Number(s.total) > 0;
+        const on = !!s.connected && hasQuota && !s.demo;
+        const total = Number(s.total) || 1;
+        const used = Number(s.used) || 0;
+        const pct = on ? Math.min(100, Math.round((used / total) * 100)) : 0;
         const totalLabel =
           total >= 1000 ? `${fmtGb(total / 1024)} TB` : `${fmtGb(total)} GB`;
-        const size = on
-          ? `${fmtGb(s.used)} / ${totalLabel}`
-          : s.connected
-            ? "연결됨"
-            : "연결 안 됨";
+        let size;
+        if (s.demo && s.connected) size = "데모";
+        else if (on) size = `${fmtGb(used)} / ${totalLabel}`;
+        else if (s.connected) size = "연결됨";
+        else size = "연결 안 됨";
         const bar = BAR_COLOR[s.id] || "#7ecb8f";
         const ico = SPACE_ICON[s.id] || "💾";
+        const name = s.demo && s.connected ? `${s.name}` : s.name;
         return `
-        <li class="${on || s.connected ? "" : "off"}">
+        <li class="${s.connected ? "" : "off"}">
           <span class="ico" aria-hidden="true">${ico}</span>
           <span class="meta">
-            <span class="name">${s.name}</span>
+            <span class="name">${name}</span>
             <span class="bar" style="--bar:${bar}"><i style="--p:${pct}"></i></span>
           </span>
           <span class="size">${size}</span>
@@ -214,6 +392,7 @@ window.BiumMini = (() => {
           used: s.used,
           total: s.total,
           connected: s.connected,
+          demo: !!s.demo,
           icon:
             s.kind === "mail"
               ? "mail"
@@ -221,11 +400,22 @@ window.BiumMini = (() => {
                 ? "cloud"
                 : "device",
         }));
-        fillSpaces();
+        const mac = res.spaces.find((s) => s.id === "mac-local");
+        if (mac && window.DigitalHomeData.summary) {
+          if (mac.used != null) window.DigitalHomeData.summary.usedGb = mac.used;
+          if (mac.total != null) window.DigitalHomeData.summary.totalGb = mac.total;
+        }
+      }
+      if (res?.summary) applySummary(res.summary);
+      const groups = res?.groups || res?.candidates?.exact?.groups || [];
+      if (groups.length) {
+        window.BiumApp?.applyExactGroups?.(groups);
       }
       if (res?.mailCleanup) {
         window.BiumApp?.applyMailCleanup?.(res.mailCleanup);
       }
+      window.BiumApp?.syncFindCountToSummary?.();
+      fillStats();
     } catch {
       /* ignore */
     }
@@ -261,21 +451,88 @@ window.BiumMini = (() => {
     }
   }
 
+  function measureMiniContentHeight() {
+    const root = $("miniRoot") || document.querySelector(".mini-root");
+    if (!root) return 0;
+    const style = getComputedStyle(root);
+    const padY =
+      (parseFloat(style.paddingTop) || 0) +
+      (parseFloat(style.paddingBottom) || 0);
+    let h = padY;
+    for (const child of root.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (child.hidden) continue;
+      const cs = getComputedStyle(child);
+      if (cs.display === "none") continue;
+      h += child.getBoundingClientRect().height;
+      h += parseFloat(cs.marginTop) || 0;
+      h += parseFloat(cs.marginBottom) || 0;
+    }
+    // title bar inset / traffic lights breathing room
+    return Math.ceil(h + 2);
+  }
+
+  function syncMiniWindowHeight() {
+    if (document.body?.dataset?.mode !== "mini") return;
+    if (!window.biumDesktop?.fitMiniHeight) return;
+    requestAnimationFrame(() => {
+      const measured = measureMiniContentHeight();
+      if (measured < 200) return;
+      window.biumDesktop.fitMiniHeight(measured);
+    });
+  }
+
   function fillStats() {
     fillMetrics();
     fillSpaces();
     updateLastScanLabel();
+    syncMiniWindowHeight();
   }
 
   function onScanProgress(e) {
     const p = e.detail || {};
-    if (p.phase === "start" || p.phase === "walk" || p.phase === "search") {
+    const label = (p.text || "").trim();
+    if (
+      p.phase === "start" ||
+      p.phase === "walk" ||
+      p.phase === "search" ||
+      p.phase === "transfer" ||
+      p.phase === "indexed" ||
+      p.phase === "found"
+    ) {
       scanning = true;
-      if ($("btnMiniScan")) $("btnMiniScan").hidden = true;
+      const pct =
+        p.progress != null
+          ? Number(p.progress)
+          : p.phase === "start"
+            ? 6
+            : p.phase === "indexed"
+              ? 92
+              : p.phase === "found"
+                ? 96
+                : undefined;
+      setScanProgress(
+        pct != null ? pct : undefined,
+        label ? `🐾 ${label}` : "🐾 탐색 중…"
+      );
+      if (label) {
+        applyLocation({
+          ...(locationState || {}),
+          location: p.agent || locationState?.location || "mac-local",
+          label: p.label || locationState?.label,
+          away: true,
+          exploring: true,
+          statusLine: `🐾 ${label}`,
+        });
+      }
     } else if (p.phase === "error") {
       scanning = false;
+      endScanProgress();
+      setStatus(`🐾 ${label || "탐색 중 문제가 생겼어요"}`);
     } else if (p.phase === "idle") {
       scanning = false;
+      setScanProgress(100, label ? `🐾 ${label}` : "🐾 탐색 끝");
+      setTimeout(() => endScanProgress(), 600);
       if (!locationState?.away && $("btnMiniScan")) {
         $("btnMiniScan").hidden = false;
       }
@@ -284,10 +541,9 @@ window.BiumMini = (() => {
 
   async function startLiveScan() {
     if (!window.BiumScanSession || window.BiumScanSession.isRunning()) return;
-    if (locationState?.away) return;
+    if (locationState?.away && scanning) return;
     scanning = true;
-    if ($("btnMiniScan")) $("btnMiniScan").hidden = true;
-    setStatus("🐾 일어나서 살펴볼게요...");
+    setScanProgress(4, "🐾 일어나서 살펴볼게요…");
     applyAnim("run");
     applyLocation({
       location: "mac-local",
@@ -300,6 +556,7 @@ window.BiumMini = (() => {
     const res = await window.BiumScanSession.run();
     lastScanAt = Date.now();
     scanning = false;
+    endScanProgress();
 
     try {
       const loc = await window.biumDesktop?.getPetLocation?.();
@@ -376,7 +633,7 @@ window.BiumMini = (() => {
       return;
     }
     // Fallback if app.js not ready — still show numbers
-    const gb = Number(window.DigitalHomeData?.summary?.cleanableGb ?? 8.7) || 0;
+    const gb = Number(window.DigitalHomeData?.summary?.cleanableGb) || 0;
     const carbonKg = gb * 0.04;
     const carbonLabel =
       carbonKg >= 1
@@ -422,28 +679,35 @@ window.BiumMini = (() => {
   }
 
   async function remountPet() {
-    const el = $("miniPet");
-    if (!el || !window.BiumPet) return;
-    el.innerHTML = "";
-    el.removeAttribute("style");
-    el.className = "mini-pet pet-atlas";
-    pet = await window.BiumPet.create(el, el);
-    // Integer scale only: 64px
-    if (pet.atlas) {
-      pet.atlas.scale = Math.max(1, Math.round(64 / (pet.atlas.cell || 32)));
-      pet.atlas._applySize?.();
-    } else if (pet.size) {
-      pet.size = 64;
-      if (pet.img) {
-        pet.img.style.width = "64px";
-        pet.img.style.height = "64px";
-      }
-    }
-    el.style.width = "64px";
-    el.style.height = "64px";
-    el.style.setProperty("--mini-x", "38%");
-    pet.setFacing("right");
-    pet.setState("sleep");
+    if (!window.BiumPet?.createForId) return;
+    stopWander();
+    habitatPets = [];
+
+    const dogEl = $("miniPetDog");
+    const catEl = $("miniPetCat");
+    if (!dogEl || !catEl) return;
+
+    dogEl.innerHTML = "";
+    catEl.innerHTML = "";
+    dogEl.className = "mini-pet is-dog pet-atlas";
+    catEl.className = "mini-pet is-cat pet-atlas";
+
+    const dog = await window.BiumPet.createForId("pawpal", dogEl, dogEl);
+    const cat = await window.BiumPet.createForId("neko", catEl, catEl);
+    await Promise.all([sizePetHost(dogEl, dog), sizePetHost(catEl, cat)]);
+
+    pet = dog;
+    const dogSlot = { id: "dog", el: dogEl, pet: dog, x: 18, y: 5, timer: null };
+    const catSlot = { id: "cat", el: catEl, pet: cat, x: 52, y: 8, timer: null };
+    placePet(dogSlot, dogSlot.x, dogSlot.y);
+    placePet(catSlot, catSlot.x, catSlot.y);
+    dog.setFacing?.("right");
+    cat.setFacing?.("left");
+    dog.setState?.("sleep");
+    cat.setState?.("sleep");
+    habitatPets = [dogSlot, catSlot];
+
+    if (!locationState?.away) startWander();
   }
 
   function setAgent(line) {
@@ -461,16 +725,20 @@ window.BiumMini = (() => {
 
   function stop() {
     scanning = false;
+    stopWander();
   }
 
   async function init() {
     fillStats();
     await remountPet();
     if (window.BiumMode?.getMode() === "mini") start();
+    syncMiniWindowHeight();
 
     document.addEventListener("bium:mode", (e) => {
-      if (e.detail?.mode === "mini") start();
-      else stop();
+      if (e.detail?.mode === "mini") {
+        start();
+        syncMiniWindowHeight();
+      } else stop();
     });
     document.addEventListener("bium:scan-progress", onScanProgress);
 
@@ -493,6 +761,7 @@ window.BiumMini = (() => {
           used: s.used,
           total: s.total,
           connected: s.connected,
+          demo: !!s.demo,
           icon:
             s.kind === "mail"
               ? "mail"
@@ -500,15 +769,12 @@ window.BiumMini = (() => {
                 ? "cloud"
                 : "device",
         }));
-        fillSpaces();
-      } else {
-        refreshConnections();
       }
+      if (payload?.summary) applySummary(payload.summary);
       if (payload?.mailCleanup) {
         window.BiumApp?.applyMailCleanup?.(payload.mailCleanup);
-        const mailGroups = payload.mailCleanup.groups?.length || 0;
-        if (mailGroups) setFoundCount(Math.max(foundCount, mailGroups));
       }
+      fillStats();
     });
     window.biumDesktop?.onPetLocation?.((snap) => applyLocation(snap));
     window.biumDesktop?.getPetLocation?.().then((snap) => {
@@ -557,5 +823,6 @@ window.BiumMini = (() => {
     setMood,
     showFetchView,
     showStatusView,
+    refreshConnections,
   };
 })();

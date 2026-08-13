@@ -4,6 +4,8 @@
 
   const state = {
     selectedKeep: null,
+    /** @type {Set<string>} paths to keep when cleaning duplicates */
+    selectedKeeps: new Set(),
     tourTimer: null,
   };
 
@@ -132,6 +134,7 @@
     $("modalRoot").classList.remove("is-util");
     $("modalRoot").innerHTML = "";
     state.selectedKeep = null;
+    state.selectedKeeps = new Set();
   }
 
   function isMiniMode() {
@@ -216,9 +219,9 @@
           <h3 class="util-sheet-title">발견한 항목</h3>
           <p class="util-sheet-lead">이름은 다르지만 내용이 같은 파일 ${files.length}개</p>
           <ul class="util-find-list">${rows}</ul>
-          <p class="util-sheet-note">하나만 남기면 <strong>+${reclaimLabel}</strong> 확보할 수 있어요</p>
+          <p class="util-sheet-note">남길 위치를 고르면 <strong>+${reclaimLabel}</strong>까지 확보할 수 있어요 · 여러 곳도 가능</p>
           <div class="util-sheet-actions">
-            <button class="util-sheet-close" data-action="keep-one" type="button">어디에 남길까요?</button>
+            <button class="util-sheet-close" data-action="keep-one" type="button">남길 위치 고르기</button>
             <button class="util-sheet-ghost" data-action="close" type="button">나중에</button>
           </div>
         </div>
@@ -260,9 +263,9 @@
       </div>
       <div class="file-list">${rows}</div>
       <p class="modal-note">${matchNote}${engineNote ? ` · ${engineNote}` : ""}</p>
-      <p class="modal-note">하나만 유지하면 <span class="gain">+${reclaim}MB</span> 확보 가능${totalHeld ? ` · 현재 ${files.length}곳 점유` : ""}</p>
+      <p class="modal-note">남길 위치를 고르면 <span class="gain">+${reclaim}MB</span>까지 확보 가능 · 여러 곳도 가능</p>
       <div class="modal-actions row">
-        <button class="px-btn accent" data-action="keep-one" type="button">어디에 남길까요?</button>
+        <button class="px-btn accent" data-action="keep-one" type="button">남길 위치 고르기</button>
         <button class="px-btn ghost" data-action="close" type="button">모두 유지</button>
         <button class="px-btn ghost" data-action="close" type="button">나중에</button>
       </div>
@@ -285,10 +288,129 @@
   function applyPrimary(primary) {
     if (!primary || !window.BiumScanMap) return;
     const mapped = window.BiumScanMap.fromDietGroup(primary, {
-      groupCount: 1,
+      groupCount: exactGroups().length || 1,
       engine: primary.engine,
     });
     window.BiumScanMap.applyToData(mapped);
+  }
+
+  function exactGroups() {
+    return data.candidates?.exact?.groups || [];
+  }
+
+  /** Headline “N건” = reviewable groups/cards, not files inside one group */
+  function computeFindCount() {
+    const exact = exactGroups().length;
+    const photos = photoGroups().length;
+    const docs = docGroups().length;
+    const cold = coldGroups().length;
+    const mail = data.mailCleanup?.groups?.length ? 1 : 0;
+    const dupFallback =
+      exact === 0 && (data.duplicate?.files?.length || 0) >= 2 ? 1 : 0;
+    return exact + dupFallback + photos + docs + cold + mail;
+  }
+
+  function syncFindCountToSummary() {
+    if (!data.summary) return;
+    const n = computeFindCount();
+    data.summary.findCount = n;
+    window.BiumMini?.setFoundCount?.(n);
+    return n;
+  }
+
+  function applyExactGroups(groups) {
+    if (!Array.isArray(groups)) return;
+    data.candidates = data.candidates || {};
+    data.candidates.exact = { groups };
+    const findDup = data.finds?.find((f) => f.id === "duplicate");
+    if (findDup) {
+      findDup.count = groups.length;
+      findDup.gb = +(
+        groups.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
+        1024 ** 3
+      ).toFixed(1);
+    }
+    if (groups[0]) applyPrimary(groups[0]);
+    syncFindCountToSummary();
+  }
+
+  function formatReclaim(bytes) {
+    const n = Number(bytes) || 0;
+    if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)}GB`;
+    if (n >= 1024 ** 2) return `${Math.max(1, Math.round(n / 1024 ** 2))}MB`;
+    return `${Math.max(1, Math.round(n / 1024))}KB`;
+  }
+
+  /** List every exact-duplicate group (fixes “43건” → only 3 files). */
+  function openExactDupList() {
+    const groups = [...exactGroups()].sort(
+      (a, b) => (b.reclaimBytes || 0) - (a.reclaimBytes || 0)
+    );
+    if (!groups.length) {
+      if ((data.duplicate?.files?.length || 0) >= 2) {
+        openDuplicateModal();
+        return;
+      }
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">똑같은 파일</h3>
+          <p class="util-sheet-note">아직 내용이 같은 묶음이 없어요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">닫기</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+    if (groups.length === 1) {
+      applyPrimary(groups[0]);
+      openDuplicateModal();
+      return;
+    }
+
+    const rows = groups
+      .slice(0, 40)
+      .map((g, i) => {
+        const n = g.files?.length || g.count || 0;
+        const title = escapeHtml(g.title || g.files?.[0]?.name || `묶음 ${i + 1}`);
+        const places = [
+          ...new Set(
+            (g.files || []).map((f) => f.deviceLabel || f.place || f.room).filter(Boolean)
+          ),
+        ]
+          .slice(0, 3)
+          .join(" · ");
+        return `
+          <button class="util-option" type="button" data-action="open-exact-group" data-group-id="${escapeHtml(String(g.id || i))}">
+            <span class="util-option-ico" aria-hidden="true">⧉</span>
+            <span class="util-option-text">
+              <strong>${title}</strong>
+              <small>${n}곳 · ${escapeHtml(places || g.reason || "내용 동일")} · ${formatReclaim(g.reclaimBytes)}</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>`;
+      })
+      .join("");
+    const more =
+      groups.length > 40
+        ? `<p class="util-sheet-note">외 ${groups.length - 40}묶음은 다음 탐색에서 이어서 볼 수 있어요.</p>`
+        : "";
+
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">똑같은 파일</h3>
+        <p class="util-sheet-lead">내용이 같은 묶음 ${groups.length}개</p>
+        <p class="util-sheet-note">하나씩 골라 어디에 남길지 정하면 돼요.</p>
+        <div class="util-options">${rows}</div>
+        ${more}
+        <button class="util-sheet-ghost" data-action="open-findings-hub" type="button">← 발견한 항목</button>
+        <button class="util-sheet-close" data-action="close" type="button">닫기</button>
+      </div>
+    `,
+      { util: true }
+    );
   }
 
   async function runDuplicateFlow() {
@@ -327,50 +449,140 @@
     openDuplicateModal();
   }
 
+  function fileBytes(f) {
+    if (!f) return 0;
+    if (Number(f.sizeBytes) > 0) return Number(f.sizeBytes);
+    if (Number(f.size) > 0 && Number(f.size) > 1000) return Number(f.size);
+    const m = String(f.size || "").match(/([\d.]+)\s*(GB|MB|KB|B)/i);
+    if (!m) return 0;
+    const n = parseFloat(m[1]);
+    const u = m[2].toUpperCase();
+    if (u === "GB") return n * 1024 ** 3;
+    if (u === "MB") return n * 1024 ** 2;
+    if (u === "KB") return n * 1024;
+    return n;
+  }
+
+  function formatKeepReclaim(bytes) {
+    const b = Number(bytes) || 0;
+    if (b >= 1024 ** 3) return `${(b / 1024 ** 3).toFixed(1)}GB`;
+    if (b >= 1024 ** 2) return `${Math.max(1, Math.round(b / 1024 ** 2))}MB`;
+    if (b >= 1024) return `${Math.max(1, Math.round(b / 1024))}KB`;
+    return `${b}B`;
+  }
+
+  function seedSelectedKeeps() {
+    const files = data.duplicate?.files || [];
+    state.selectedKeeps = new Set();
+    const recommended = files.filter((f) => f.recommended && f.path);
+    if (recommended.length) {
+      recommended.forEach((f) => state.selectedKeeps.add(f.path));
+    } else if (files[0]?.path) {
+      state.selectedKeeps.add(files[0].path);
+    }
+    state.selectedKeep = [...state.selectedKeeps][0] || null;
+  }
+
+  function pathForKeepIdx(idx) {
+    const files = data.duplicate?.files || [];
+    return files[Number(idx)]?.path || null;
+  }
+
+  function updateKeepSelectionUi() {
+    const root = $("modalRoot");
+    if (!root) return;
+    root.querySelectorAll("[data-keep-idx]").forEach((el) => {
+      const p = pathForKeepIdx(el.dataset.keepIdx);
+      const on = !!(p && state.selectedKeeps.has(p));
+      el.classList.toggle("selected", on);
+      el.classList.toggle("is-on", on);
+      el.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    const files = data.duplicate?.files || [];
+    const keepN = state.selectedKeeps.size;
+    const trashBytes = files
+      .filter((f) => f.path && !state.selectedKeeps.has(f.path))
+      .reduce((s, f) => s + fileBytes(f), 0);
+    const labels = files
+      .filter((f) => f.path && state.selectedKeeps.has(f.path))
+      .map((f) => f.keepLabel || f.place || f.name)
+      .filter(Boolean);
+    const reason = $("keepReason");
+    const confirmBtn = root.querySelector("[data-action='confirm-keep']");
+    if (!keepN) {
+      if (reason) {
+        reason.textContent =
+          "남길 위치를 하나 이상 골라 주세요. 여러 곳도 가능해요.";
+      }
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (keepN >= files.length) {
+      if (reason) {
+        reason.textContent = "모든 위치를 남기면 정리할 사본이 없어요.";
+      }
+      if (confirmBtn) confirmBtn.textContent = "모두 유지";
+      return;
+    }
+    if (confirmBtn) {
+      confirmBtn.textContent =
+        keepN === 1 ? "이 위치에 남기기" : `${keepN}곳에 남기고 정리`;
+    }
+    if (reason) {
+      reason.innerHTML = `<strong>${escapeHtml(labels.join(" · "))}</strong>에 남기고 나머지 사본을 정리해요 · 확보 약 <strong>+${formatKeepReclaim(trashBytes)}</strong>`;
+    }
+  }
+
   function openKeepWhere() {
-    const hero = data.duplicate.files[0];
+    const files = data.duplicate?.files || [];
+    const hero = files[0];
+    seedSelectedKeeps();
 
     if (isMiniMode()) {
-      const options = data.duplicate.files
-        .map(
-          (f) => `
-          <button class="util-option ${f.recommended ? "is-rec" : ""}" type="button" data-keep="${f.keepId}">
+      const options = files
+        .map((f, i) => {
+          const on = f.path && state.selectedKeeps.has(f.path);
+          return `
+          <button class="util-option util-option-multi ${f.recommended ? "is-rec" : ""} ${on ? "is-on selected" : ""}" type="button" data-keep-idx="${i}" aria-pressed="${on ? "true" : "false"}">
             <span class="util-option-ico" aria-hidden="true">📁</span>
             <span class="util-option-text">
-              <strong>${escapeHtml(f.keepLabel)}${f.recommended ? " · 추천" : ""}</strong>
-              <small>${escapeHtml(f.place || "")}<br>${escapeHtml(f.keepDesc || "")}</small>
+              <strong>${escapeHtml(f.keepLabel || f.name)}${f.recommended ? " · 추천" : ""}</strong>
+              <small>${escapeHtml(f.place || "")}<br>${escapeHtml(f.keepDesc || f.size || "")}</small>
             </span>
-            <span class="util-check" aria-hidden="true"></span>
-          </button>`
-        )
+            <span class="util-check util-check-multi" aria-hidden="true"></span>
+          </button>`;
+        })
         .join("");
 
       openModal(
         `
         <div class="util-sheet">
           <h3 class="util-sheet-title">어디에 남길까요?</h3>
-          <p class="util-sheet-lead">${hero ? `${escapeHtml(hero.name)} · ${escapeHtml(hero.size || "")}` : "한 곳만 남깁니다"}<br><small>탄소 절감을 위해 <strong>로컬 Desktop</strong>을 추천해요</small></p>
+          <p class="util-sheet-lead">${hero ? `${escapeHtml(hero.name)} · ${escapeHtml(hero.size || "")}` : "남길 사본을 고르세요"}<br><small>여러 위치를 선택할 수 있어요. 고르지 않은 곳만 정리해요.</small></p>
           <div class="util-options" id="keepOptions">${options}</div>
-          <p class="util-sheet-note" id="keepReason">Drive 대신 로컬에 남기면 클라우드 부하를 줄일 수 있어요</p>
+          <p class="util-sheet-note" id="keepReason"></p>
           <div class="util-sheet-actions">
-            <button class="util-sheet-close" data-action="confirm-keep" type="button">이 위치에 남기기</button>
+            <button class="util-sheet-close" data-action="confirm-keep" type="button">남기고 정리</button>
             <button class="util-sheet-ghost" data-action="back-dup" type="button">뒤로</button>
           </div>
         </div>
       `,
         { util: true }
       );
+      updateKeepSelectionUi();
       return;
     }
 
-    const options = data.duplicate.files
-      .map((f) => {
+    const options = files
+      .map((f, i) => {
+        const on = f.path && state.selectedKeeps.has(f.path);
         const rec = f.recommended ? `<span class="rec">추천</span>` : "";
         return `
-          <button class="keep-option" type="button" data-keep="${f.keepId}">
+          <button class="keep-option ${on ? "selected" : ""}" type="button" data-keep-idx="${i}" aria-pressed="${on ? "true" : "false"}">
             <div>
-              <strong>${f.keepLabel}</strong>
-              <small>${f.place}<br>${f.keepDesc}</small>
+              <strong>${escapeHtml(f.keepLabel || f.name)}</strong>
+              <small>${escapeHtml(f.place || "")}<br>${escapeHtml(f.keepDesc || "")}</small>
             </div>
             ${rec}
           </button>
@@ -380,15 +592,16 @@
 
     openModal(`
       <h3 class="dialog-title">어디에 남겨둘까요?</h3>
-      <p class="dialog-sub">${hero ? `${hero.name} · ${hero.size}` : "선택한 사본만 남깁니다."}<br>탄소 절감을 위해 <strong>로컬 Desktop</strong>을 추천해요. Drive 사본은 정리 후보예요.</p>
+      <p class="dialog-sub">${hero ? `${escapeHtml(hero.name)} · ${escapeHtml(hero.size || "")}` : "남길 사본을 고르세요."}<br>여러 위치를 선택할 수 있어요. 고르지 않은 곳만 정리해요.</p>
       <div class="keep-options">${options}</div>
-      <p class="modal-note" id="keepReason">Drive 대신 로컬에 남기면 클라우드 부하를 줄일 수 있어요.</p>
+      <p class="modal-note" id="keepReason"></p>
       <div class="modal-actions row">
-        <button class="px-btn accent" data-action="confirm-keep" type="button">이 위치에 남기기</button>
+        <button class="px-btn accent" data-action="confirm-keep" type="button">남기고 정리</button>
         <button class="px-btn ghost" data-action="back-dup" type="button">뒤로</button>
         <button class="px-btn ghost" data-action="close" type="button">모두 유지</button>
       </div>
     `);
+    updateKeepSelectionUi();
   }
 
   async function finishCleanup() {
@@ -528,32 +741,80 @@
   }
 
   function applyMailCleanup(cleanup) {
-    if (!cleanup?.groups?.length) {
+    const mailFind = data.finds.find((f) => f.id === "mail");
+
+    // Live UI never shows invented demo mail counts
+    if (!cleanup || cleanup.demo || cleanup.source === "demo") {
       data.mailCleanup = null;
+      if (mailFind) {
+        mailFind.label = "메일 정리";
+        mailFind.count = 0;
+        mailFind.gb = 0;
+      }
+      renderFinds();
+      window.BiumMini?.fillStats?.();
       return;
     }
+
     data.mailCleanup = cleanup;
-    const mailFind = data.finds.find((f) => f.id === "mail");
     if (mailFind) {
-      mailFind.label = "스팸·오래된 안읽음";
-      mailFind.count = cleanup.groups.reduce((s, g) => s + (g.count || 0), 0);
-      mailFind.gb = +((cleanup.reclaimBytes || 0) / 1024 ** 3).toFixed(1);
+      if (!cleanup.groups?.length) {
+        mailFind.label = "메일함 깨끗";
+        mailFind.count = 0;
+        mailFind.gb = 0;
+      } else {
+        mailFind.label = "스팸·오래된 안읽음";
+        mailFind.count = cleanup.groups.reduce(
+          (s, g) => s + (g.count || 0),
+          0
+        );
+        mailFind.gb = +((cleanup.reclaimBytes || 0) / 1024 ** 3).toFixed(1);
+      }
     }
     const mailGb = mailFind?.gb || 0;
-    // Base cleanup estimate + mail reclaim (capped so Mini stays readable)
-    data.summary.cleanableGb = +(8.7 + Math.min(mailGb, 3)).toFixed(1);
+    if (mailGb > 0) {
+      const prev = Number(data.summary.cleanableGb) || 0;
+      data.summary.cleanableGb = +Math.max(prev, mailGb).toFixed(1);
+    }
+    if (data.summary.findCount != null && mailFind?.count) {
+      data.summary.findCount = Math.max(
+        Number(data.summary.findCount) || 0,
+        1
+      );
+    }
     renderFinds();
     window.BiumMini?.fillStats?.();
   }
 
   function openMailCleanupModal() {
     const cleanup = data.mailCleanup;
-    if (!cleanup?.groups?.length) {
+    if (!cleanup) {
       openModal(
         `
         <div class="util-sheet">
           <h3 class="util-sheet-title">메일 정리</h3>
-          <p class="util-sheet-note">Gmail을 연결하면 스팸·오래된 안 읽은 메일을 추천해요.</p>
+          <p class="util-sheet-lead">Gmail을 연결하면 스팸·90일+ 안읽음을 실제로 봐요</p>
+          <p class="util-sheet-note">기기 추가 → Gmail, 또는 설정에서 Google 로그인 후 Gmail을 연결하세요. Cloud Console에 Gmail API가 켜져 있어야 해요.</p>
+          <button class="util-sheet-ghost" data-action="open-add-device" type="button">기기 추가</button>
+          <button class="util-sheet-close" data-action="close" type="button">닫기</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+
+    if (!cleanup.groups?.length) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">메일함 상태</h3>
+          <p class="util-sheet-lead">${
+            cleanup.email
+              ? escapeHtml(cleanup.email) + " · "
+              : ""
+          }스팸·90일+ 안읽음이 거의 없어요</p>
+          <p class="util-sheet-note">Gmail API로 확인한 실제 결과예요.</p>
           <button class="util-sheet-close" data-action="close" type="button">확인</button>
         </div>
       `,
@@ -561,6 +822,12 @@
       );
       return;
     }
+
+    const srcNote = cleanup.demo
+      ? "데모 수치예요. Gmail을 다시 연결하면 실제 건수로 바뀌어요."
+      : cleanup.email
+        ? `Gmail · ${escapeHtml(cleanup.email)} · 통수·용량은 API 추정이에요.`
+        : "Gmail API로 확인한 실제 추천이에요. 메일은 바로 지우지 않아요.";
 
     const rows = cleanup.groups
       .map(
@@ -579,11 +846,11 @@
       `
       <div class="util-sheet">
         <h3 class="util-sheet-title">메일 정리 추천</h3>
-        <p class="util-sheet-lead">스팸과 오래 안 읽은 메일을 비우면 <strong>+${formatReclaim(cleanup.reclaimBytes)}</strong> 확보할 수 있어요</p>
+        <p class="util-sheet-lead">스팸과 90일+ 안 읽은 메일을 비우면 <strong>+${formatReclaim(cleanup.reclaimBytes)}</strong> 정도 확보할 수 있어요</p>
         <ul class="util-find-list">${rows}</ul>
-        <p class="util-sheet-note">메일은 바로 지우지 않고, 비우기만 추천해요.</p>
+        <p class="util-sheet-note">${srcNote}</p>
         <div class="util-sheet-actions">
-          <button class="util-sheet-close" data-action="mail-clean-ack" type="button">정리 추천 확인</button>
+          <button class="util-sheet-close" data-action="mail-clean-ack" type="button">확인했어요</button>
           <button class="util-sheet-ghost" data-action="close" type="button">나중에</button>
         </div>
       </div>
@@ -614,23 +881,41 @@
         candidates.coldStale ||
         data.candidates?.coldStale || { groups: [] },
     };
+    const exact = exactGroups();
+    const findDup = data.finds?.find((f) => f.id === "duplicate");
+    if (findDup) {
+      findDup.count = exact.length;
+      findDup.gb = +(
+        exact.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
+        1024 ** 3
+      ).toFixed(1);
+    }
+    if (exact[0] && (data.duplicate?.files?.length || 0) < 2) {
+      applyPrimary(exact[0]);
+    }
     const photos = photoGroups();
     const docs = docGroups();
     const colds = coldGroups();
     const findPhoto = data.finds?.find((f) => f.id === "similar-photos");
-    if (findPhoto && photos[0]) {
-      findPhoto.count = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    if (findPhoto) {
+      findPhoto.count = photos.reduce(
+        (s, g) => s + (g.count || g.files?.length || 0),
+        0
+      );
       findPhoto.gb = +(
         photos.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
         1024 ** 3
       ).toFixed(2);
     }
     const findDoc = data.finds?.find((f) => f.id === "similar-docs");
-    if (findDoc && docs[0]) {
-      findDoc.count = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    if (findDoc) {
+      findDoc.count = docs.reduce(
+        (s, g) => s + (g.count || g.files?.length || 0),
+        0
+      );
     }
     const findCold = data.finds?.find((f) => f.id === "cold-stale");
-    if (findCold && colds[0]) {
+    if (findCold) {
       findCold.count = colds.reduce(
         (s, g) => s + (g.count || g.files?.length || 0),
         0
@@ -641,6 +926,7 @@
       ).toFixed(1);
       findCold.label = "오래 안 연 폴더";
     }
+    syncFindCountToSummary();
     renderFinds();
     window.BiumMini?.fillStats?.();
   }
@@ -683,8 +969,12 @@
         <p class="util-sheet-lead">${escapeHtml(group.reason || "")}</p>
         <ul class="util-find-list util-stack-list">${rows}</ul>
         <p class="util-sheet-note">
-          선명도 최고 · ${escapeHtml(hint.sharpest || "—")}<br>
-          눈 감음 ${hint.eyesOpen === false ? "있음" : "없음"} · 해상도 가장 높음 · ${escapeHtml(hint.highestRes || hint.sharpest || "—")}
+          해상도·용량 추천 · ${escapeHtml(hint.highestRes || hint.sharpest || "—")}<br>
+          ${
+            hint.eyesOpen == null
+              ? `지각 해시 차이 · ${hint.maxDifference != null ? hint.maxDifference : "—"} (낮을수록 더 닮음)`
+              : `눈 감음 ${hint.eyesOpen === false ? "있음" : "없음"} · 선명도 · ${escapeHtml(hint.sharpest || "—")}`
+          }
         </p>
         ${group.explain ? `<p class="util-sheet-note">${escapeHtml(group.explain)}</p>` : ""}
         <p class="util-sheet-note">추천: <strong>1장 남기기</strong> · 확보 가능 <strong>+${formatReclaim(group.reclaimBytes)}</strong></p>
@@ -825,7 +1115,9 @@
   }
 
   function openFindingsHub() {
-    const hasDup = (data.duplicate?.files?.length || 0) >= 2;
+    const exact = exactGroups();
+    const hasDup =
+      exact.length > 0 || (data.duplicate?.files?.length || 0) >= 2;
     const photos = photoGroups();
     const docs = docGroups();
     const colds = coldGroups();
@@ -833,6 +1125,7 @@
     const hasDocs = docs.length > 0;
     const hasCold = colds.length > 0;
     const hasMail = !!(data.mailCleanup?.groups?.length);
+    syncFindCountToSummary();
 
     if (!hasDup && !hasPhotos && !hasDocs && !hasCold && !hasMail) {
       openModal(
@@ -848,7 +1141,11 @@
       return;
     }
 
-    const dupN = hasDup ? data.duplicate.files.length : 0;
+    const dupN = exact.length || (hasDup ? 1 : 0);
+    const dupFiles = exact.reduce(
+      (s, g) => s + (g.files?.length || 0),
+      0
+    ) || data.duplicate?.files?.length || 0;
     const photoN = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
     const docN = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
     const coldGb = +(
@@ -870,7 +1167,7 @@
             <span class="util-option-ico" aria-hidden="true">⧉</span>
             <span class="util-option-text">
               <strong>똑같은 파일</strong>
-              <small>이름만 다르고 내용이 같아요 · ${dupN}개</small>
+              <small>내용이 같은 묶음 ${dupN}개 · 파일 ${dupFiles}개</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -1001,8 +1298,22 @@
       closeModal();
       (async () => {
         try {
+          if (id === "gmail" || id === "mail") {
+            window.BiumMini?.setAgent?.(
+              "🐾 Gmail 권한을 확인하는 중… 브라우저 로그인이 열릴 수 있어요"
+            );
+          }
           const res = await window.biumDesktop?.connectSpace?.(id);
           window.BiumMini?.fillStats?.();
+
+          if (res?.needClientId) {
+            window.BiumMini?.setAgent?.(
+              `🐾 ${res.error || "Google Client ID가 필요해요"}`
+            );
+            openGoogleClientSettings();
+            return;
+          }
+
           if (window.BiumMini?.setAgent) {
             window.BiumMini.setAgent(
               res?.ok === false
@@ -1010,6 +1321,8 @@
                 : `🐾 ${res?.message || "연결했어요"}`
             );
           }
+          if (res?.ok === false) return;
+
           // refresh from IPC broadcast / getConnections
           const con = await window.biumDesktop?.getConnections?.();
           if (con?.spaces?.length && window.DigitalHomeData) {
@@ -1030,7 +1343,7 @@
           }
           if (res?.mailCleanup) applyMailCleanup(res.mailCleanup);
           else if (con?.mailCleanup) applyMailCleanup(con.mailCleanup);
-          if (res?.ok !== false && (id === "gmail" || id === "mail")) {
+          if (id === "gmail" || id === "mail") {
             openMailCleanupModal();
           }
         } catch (err) {
@@ -1080,19 +1393,27 @@
       return;
     }
 
-    const keep = e.target.closest("[data-keep]");
-    if (keep) {
-      state.selectedKeep = keep.dataset.keep;
-      $("modalRoot").querySelectorAll(".keep-option, .util-option[data-keep]").forEach((el) => {
-        const on = el === keep;
-        el.classList.toggle("selected", on);
-        el.classList.toggle("is-on", on);
-      });
-      const file = data.duplicate.files.find((f) => f.keepId === state.selectedKeep);
-      const reason = $("keepReason");
-      if (reason) {
-        reason.textContent = file?.reason || `${file.keepLabel}에 남기고 나머지 사본을 정리합니다.`;
+    const keepToggle = e.target.closest("[data-keep-idx]");
+    if (keepToggle) {
+      const p = pathForKeepIdx(keepToggle.dataset.keepIdx);
+      if (!p) return;
+      if (state.selectedKeeps.has(p)) {
+        // Don't allow clearing the last keep target via toggle — user can pick another first
+        if (state.selectedKeeps.size <= 1) {
+          updateKeepSelectionUi();
+          const reason = $("keepReason");
+          if (reason) {
+            reason.textContent =
+              "최소 한 곳은 남겨야 해요. 다른 곳을 켠 뒤 끌 수 있어요.";
+          }
+          return;
+        }
+        state.selectedKeeps.delete(p);
+      } else {
+        state.selectedKeeps.add(p);
       }
+      state.selectedKeep = [...state.selectedKeeps][0] || null;
+      updateKeepSelectionUi();
       return;
     }
 
@@ -1103,6 +1424,17 @@
       resumeHomeChrome();
     }
     if (action === "open-dup-find") {
+      openExactDupList();
+      return;
+    }
+    if (action === "open-exact-group") {
+      const id = e.target.closest("[data-group-id]")?.dataset?.groupId;
+      const groups = exactGroups();
+      const group =
+        groups.find((g) => String(g.id) === String(id)) ||
+        groups[Number(id)] ||
+        null;
+      if (group) applyPrimary(group);
       openDuplicateModal();
       return;
     }
@@ -1196,15 +1528,223 @@
         }, 1200);
       }
     }
+    if (action === "open-add-device") {
+      openAddDevice();
+      return;
+    }
+    if (action === "connect-gmail") {
+      closeModal();
+      (async () => {
+        try {
+          window.BiumMini?.setAgent?.(
+            "🐾 Gmail 권한을 확인하는 중… 브라우저 로그인이 열릴 수 있어요"
+          );
+          const res = await window.biumDesktop?.connectSpace?.("gmail");
+          if (res?.needClientId) {
+            window.BiumMini?.setAgent?.(
+              `🐾 ${res.error || "Google Client ID가 필요해요"}`
+            );
+            openGoogleClientSettings();
+            return;
+          }
+          window.BiumMini?.setAgent?.(
+            res?.ok === false
+              ? `🐾 ${res.error || "Gmail 연결 실패"}`
+              : `🐾 ${res?.message || "Gmail을 연결했어요"}`
+          );
+          if (res?.ok === false) return;
+          if (res?.mailCleanup) applyMailCleanup(res.mailCleanup);
+          openMailCleanupModal();
+        } catch (err) {
+          window.BiumMini?.setAgent?.(
+            `🐾 ${err.message || "Gmail 연결 실패"}`
+          );
+        }
+      })();
+      return;
+    }
+    if (action === "open-google-client") {
+      openGoogleClientSettings();
+      return;
+    }
+    if (action === "clear-google-client") {
+      (async () => {
+        try {
+          await window.biumDesktop?.setConfig?.({ googleClientId: "" });
+          try {
+            await window.biumDesktop?.disconnectSpace?.("gdrive");
+          } catch {
+            /* ignore */
+          }
+          window.BiumMini?.setAgent?.(
+            "🐾 Client ID를 지웠어요. Drive는 데모로 연결돼요"
+          );
+          closeModal();
+        } catch (err) {
+          window.BiumMini?.setAgent?.(
+            `🐾 ${err.message || "삭제에 실패했어요"}`
+          );
+        }
+      })();
+      return;
+    }
+    if (action === "save-google-client") {
+      const input = $("googleClientIdInput");
+      const id = (input?.value || "").trim();
+      const keepExisting = input?.dataset?.keepExisting === "1";
+      (async () => {
+        try {
+          // Empty field + already saved → keep secret, just start login
+          if (!id && keepExisting) {
+            closeModal();
+            window.BiumMini?.setAgent?.(
+              "🐾 저장된 Client ID로 Google 로그인을 열어요"
+            );
+            try {
+              await window.biumDesktop?.disconnectSpace?.("gdrive");
+            } catch {
+              /* ignore */
+            }
+            const res = await window.biumDesktop?.connectSpace?.("gdrive");
+            window.BiumMini?.setAgent?.(
+              res?.ok === false
+                ? `🐾 ${res.error || "Google 로그인을 시작하지 못했어요"}`
+                : `🐾 ${res?.message || "Google Drive를 연결했어요"}`
+            );
+            window.BiumMini?.fillStats?.();
+            return;
+          }
+          if (!id) {
+            window.BiumMini?.setAgent?.(
+              "🐾 Client ID를 붙여넣은 뒤 저장해 주세요"
+            );
+            return;
+          }
+          await window.biumDesktop?.setConfig?.({ googleClientId: id });
+          if (input) {
+            input.value = "";
+            input.dataset.keepExisting = "1";
+          }
+          closeModal();
+          window.BiumMini?.setAgent?.(
+            "🐾 저장했어요. Google 로그인 창에서 Drive 권한을 승인해 주세요"
+          );
+          try {
+            await window.biumDesktop?.disconnectSpace?.("gdrive");
+          } catch {
+            /* ignore */
+          }
+          const res = await window.biumDesktop?.connectSpace?.("gdrive");
+          if (res?.ok === false) {
+            window.BiumMini?.setAgent?.(
+              `🐾 ${res.error || "Google 로그인을 시작하지 못했어요"}`
+            );
+            return;
+          }
+          window.BiumMini?.setAgent?.(
+            `🐾 ${res?.message || "Google Drive를 연결했어요"}`
+          );
+          window.BiumMini?.fillStats?.();
+        } catch (err) {
+          window.BiumMini?.setAgent?.(
+            `🐾 ${err.message || "저장에 실패했어요"}`
+          );
+        }
+      })();
+      return;
+    }
+    if (action === "save-naver-mail") {
+      const email = ($("naverEmailInput")?.value || "").trim();
+      const appPassword = ($("naverAppPasswordInput")?.value || "").trim();
+      (async () => {
+        try {
+          if (!email || !appPassword) {
+            window.BiumMini?.setAgent?.(
+              "🐾 네이버 이메일과 애플리케이션 비밀번호를 넣어 주세요"
+            );
+            return;
+          }
+          const res = await window.biumDesktop?.saveNaverCredentials?.({
+            email,
+            appPassword,
+          });
+          if (res?.ok === false) {
+            window.BiumMini?.setAgent?.(
+              `🐾 ${res.error || "저장에 실패했어요"}`
+            );
+            return;
+          }
+          window.BiumMini?.setAgent?.(
+            res?.tested
+              ? "🐾 네이버 IMAP 연결됐어요. 탐색하면 첨부를 맞춰 봐요"
+              : `🐾 ${res?.warning || "저장했어요. IMAP 설정을 확인해 주세요"}`
+          );
+          closeModal();
+        } catch (err) {
+          window.BiumMini?.setAgent?.(
+            `🐾 ${err.message || "저장에 실패했어요"}`
+          );
+        }
+      })();
+      return;
+    }
     if (action === "keep-one") openKeepWhere();
-    if (action === "back-dup") openDuplicateModal();
+    if (action === "back-dup") {
+      if (exactGroups().length > 1) openExactDupList();
+      else openDuplicateModal();
+    }
     if (action === "confirm-keep") {
-      if (!state.selectedKeep) {
-        const reason = $("keepReason");
-        if (reason) reason.textContent = "먼저 남길 위치를 선택해 주세요.";
+      const keepPaths = [...state.selectedKeeps].filter(Boolean);
+      const files = data.duplicate?.files || [];
+      const reason = $("keepReason");
+      if (!keepPaths.length) {
+        if (reason) {
+          reason.textContent = "먼저 남길 위치를 하나 이상 선택해 주세요.";
+        }
         return;
       }
-      finishCleanup();
+      if (keepPaths.length >= files.length) {
+        window.BiumMini?.setAgent?.("🐾 모든 위치를 남겨둘게요");
+        closeModal();
+        resumeHomeChrome();
+        return;
+      }
+      if (reason) {
+        reason.textContent = `${keepPaths.length}곳에 남기고 사본을 정리하는 중…`;
+      }
+      (async () => {
+        try {
+          const res = await window.biumDesktop?.keepOne?.({
+            keepPaths,
+            keepPath: keepPaths[0],
+            files,
+          });
+          if (res && res.ok === false && res.error) {
+            if (reason) reason.textContent = res.error;
+            window.BiumMini?.setAgent?.(
+              `🐾 ${res.error || "일부 사본을 정리하지 못했어요"}`
+            );
+            if (!res.trashed?.length) return;
+          }
+          const n = res?.trashed?.length || 0;
+          const skipped = res?.skipped?.length || 0;
+          const keptN = res?.kept?.length || keepPaths.length;
+          window.BiumMini?.setAgent?.(
+            n
+              ? `🐾 ${keptN}곳 남기고 ${n}개 사본 정리${skipped ? ` · ${skipped}개 건너뜀` : ""}`
+              : `🐾 ${res?.message || "정리했어요"}`
+          );
+          await finishCleanup();
+        } catch (err) {
+          if (reason) {
+            reason.textContent =
+              err.message || "정리에 실패했어요. 권한·연결을 확인해 주세요.";
+          }
+          window.BiumMini?.setAgent?.(
+            `🐾 ${err.message || "정리에 실패했어요"}`
+          );
+        }
+      })();
     }
   }
 
@@ -1247,9 +1787,15 @@
         ico: "☁",
       },
       {
+        id: "naver-mail",
+        name: "네이버 메일",
+        desc: "IMAP · 오래된 첨부·교차 중복",
+        ico: "✉",
+      },
+      {
         id: "gmail",
         name: "Gmail",
-        desc: "스팸·오래된 안읽음 정리 추천",
+        desc: "실제 스팸 · 90일+ 안읽음 (Gmail API)",
         ico: "✉",
       },
       {
@@ -1322,16 +1868,101 @@
     return applyTheme(theme);
   }
 
+  function googleGIconSvg() {
+    return `<svg class="btn-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>`;
+  }
+
+  function googleSignInButton({ action = "save-google-client", label = "Google로 로그인" } = {}) {
+    return `
+      <button class="btn-google" data-action="${escapeHtml(action)}" type="button">
+        ${googleGIconSvg()}
+        <span class="btn-google-label">${escapeHtml(label)}</span>
+      </button>`;
+  }
+
+  function naverConnectButton({
+    action = "save-naver-mail",
+    label = "네이버로 연결",
+  } = {}) {
+    return `
+      <button class="btn-naver" data-action="${escapeHtml(action)}" type="button">
+        <span class="btn-naver-mark" aria-hidden="true">N</span>
+        <span class="btn-naver-label">${escapeHtml(label)}</span>
+      </button>`;
+  }
+
+  async function openGoogleClientSettings() {
+    let hasId = false;
+    let hint = "";
+    try {
+      const cfg = await window.biumDesktop?.getConfig?.();
+      hasId = !!cfg?.hasGoogleClientId;
+      hint = cfg?.googleClientIdHint || "";
+    } catch {
+      /* browser prototype */
+    }
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">Google Drive 연결</h3>
+        <p class="util-sheet-lead">${hasId ? "저장된 Client ID로 로그인" : "Client ID 입력 후 로그인"}</p>
+        <p class="util-sheet-note">${
+          hasId
+            ? `저장됨 · <span class="util-secret">${escapeHtml(hint)}</span> · 전체 값은 화면에 다시 보이지 않아요.`
+            : "Google Cloud Console의 Desktop Client ID만 붙여넣으세요. 저장 후엔 마스킹돼요."
+        }</p>
+        <input
+          class="util-input"
+          id="googleClientIdInput"
+          type="password"
+          spellcheck="false"
+          autocomplete="new-password"
+          data-keep-existing="${hasId ? "1" : "0"}"
+          placeholder="${hasId ? "바꾸려면 새 Client ID 붙여넣기" : "xxxx.apps.googleusercontent.com"}"
+          value=""
+        />
+        ${googleSignInButton({
+          action: "save-google-client",
+          label: hasId ? "Google로 로그인" : "저장하고 Google로 로그인",
+        })}
+        ${
+          hasId
+            ? `<button class="util-sheet-ghost" data-action="clear-google-client" type="button">Client ID 삭제</button>`
+            : ""
+        }
+        <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
+      </div>
+    `,
+      { util: true }
+    );
+    requestAnimationFrame(() => {
+      $("googleClientIdInput")?.focus();
+    });
+  }
+
   async function openDisplaySettings() {
     const petId = window.BiumPet?.getId() || "neko";
     let petOnDesktop = true;
     let theme = normalizeTheme(document.documentElement.dataset.theme || "cozy");
+    let hasGoogleId = false;
+    let googleHint = "";
+    let naverEmail = "";
+    let hasNaver = false;
     try {
       const st = await window.biumDesktop?.scanStatus?.();
       if (typeof st?.desktopPet === "boolean") petOnDesktop = st.desktopPet;
       else if (typeof st?.petVisible === "boolean") petOnDesktop = st.petVisible;
       const cfg = await window.biumDesktop?.getConfig?.();
       if (cfg?.theme) theme = normalizeTheme(cfg.theme);
+      hasGoogleId = !!cfg?.hasGoogleClientId;
+      googleHint = cfg?.googleClientIdHint || "";
+      if (cfg?.naverEmail) naverEmail = cfg.naverEmail;
+      if (cfg?.hasNaverCredentials) hasNaver = true;
     } catch {
       /* browser prototype */
     }
@@ -1393,7 +2024,53 @@
             <span class="util-check" aria-hidden="true"></span>
           </button>
         </div>
-        <button class="util-sheet-close" data-action="close" type="button">닫기</button>
+        <p class="util-sheet-label">Google 연결</p>
+        <p class="util-sheet-note">${
+          hasGoogleId
+            ? `저장됨 · <span class="util-secret">${escapeHtml(googleHint)}</span>`
+            : "Drive를 쓰려면 Google 계정으로 연결하세요."
+        }</p>
+        ${googleSignInButton({
+          action: "open-google-client",
+          label: hasGoogleId ? "Google로 로그인" : "Google로 계속하기",
+        })}
+        ${
+          hasGoogleId
+            ? `<button class="util-sheet-ghost" data-action="open-google-client" type="button">Client ID 변경</button>`
+            : ""
+        }
+        <p class="util-sheet-label">Gmail 정리</p>
+        <p class="util-sheet-note">같은 Google 계정으로 스팸함·90일 이상 안 읽은 메일 건수를 불러와요. Cloud Console에서 Gmail API를 켜 두세요.</p>
+        <button class="btn-google" data-action="connect-gmail" type="button">
+          ${googleGIconSvg()}
+          <span class="btn-google-label">Gmail 연결 · 정리 추천</span>
+        </button>
+        <p class="util-sheet-label">네이버 메일 (IMAP)</p>
+        <p class="util-sheet-note">메일 설정에서 IMAP 사용함 + 2단계 인증 앱 비밀번호가 필요해요. 일반 비밀번호는 저장하지 않아요.${hasNaver ? " · 저장됨" : ""}</p>
+        <input
+          class="util-input"
+          id="naverEmailInput"
+          type="email"
+          spellcheck="false"
+          autocomplete="username"
+          placeholder="example@naver.com"
+          value="${escapeHtml(naverEmail)}"
+        />
+        <input
+          class="util-input"
+          id="naverAppPasswordInput"
+          type="password"
+          autocomplete="new-password"
+          placeholder="애플리케이션 비밀번호"
+          value=""
+        />
+        <div class="util-sheet-actions">
+          ${naverConnectButton({
+            action: "save-naver-mail",
+            label: hasNaver ? "네이버 연결 업데이트" : "네이버로 연결",
+          })}
+          <button class="util-sheet-close" data-action="close" type="button">닫기</button>
+        </div>
       </div>
     `,
       { util: true }
@@ -1485,11 +2162,16 @@
 
   window.BiumApp = {
     openDisplaySettings,
+    openGoogleClientSettings,
     openAddDevice,
     applyMailCleanup,
     openMailCleanupModal,
     openFindingsHub,
+    openExactDupList,
     applyCandidates,
+    applyExactGroups,
+    syncFindCountToSummary,
+    computeFindCount,
     openPhotoStackModal,
     openDocReviewModal,
     openHibernateModal,
@@ -1528,6 +2210,10 @@
     await window.BiumMini?.init?.();
     window.biumDesktop?.onConfig?.((cfg) => {
       if (cfg?.theme) applyTheme(cfg.theme);
+    });
+
+    window.biumDesktop?.onOpenGoogleSettings?.(() => {
+      openGoogleClientSettings();
     });
 
     document.addEventListener("bium:mode", (e) => {

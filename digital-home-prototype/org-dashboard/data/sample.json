@@ -1,0 +1,97 @@
+{
+  "org": {
+    "name": "CHIC Demo Corp",
+    "period": "2026-08",
+    "timezone": "Asia/Seoul",
+    "updatedAt": "2026-08-14T00:00:00+09:00"
+  },
+  "formulas": {
+    "krwPerGbYear": 4137.93,
+    "kgCo2ePerGbYear": 0.04,
+    "note": "BIUM 클라와 동일 오더: 8.7GB ≈ ₩36,000/년, 0.04 kgCO₂e/GB·년"
+  },
+  "kpiTargets": {
+    "monthlyReclaimedGb": 400,
+    "monthlySavingKrw": 1655000,
+    "adoptionPct": 70,
+    "cleanupRatePct": 55
+  },
+  "summary": {
+    "seats": 128,
+    "activeUsers": 86,
+    "scansThisMonth": 412,
+    "reclaimedGb": 318.4,
+    "cleanableRemainingGb": 142.6,
+    "actionsCompleted": 974,
+    "dupGroupsCleared": 631,
+    "mailItemsRecommended": 18420
+  },
+  "forecastNextMonth": {
+    "reclaimedGbLow": 340,
+    "reclaimedGbMid": 390,
+    "reclaimedGbHigh": 450,
+    "savingKrwMid": 1614000,
+    "confidence": 0.72,
+    "drivers": [
+      "활성 사용자 +12% 추세",
+      "Drive·메일 교차 중복 증가",
+      "신규 온보딩 22명"
+    ]
+  },
+  "weekly": [
+    { "week": "W23", "reclaimedGb": 48.2, "savingKrw": 199500, "activeUsers": 54 },
+    { "week": "W24", "reclaimedGb": 52.1, "savingKrw": 215600, "activeUsers": 61 },
+    { "week": "W25", "reclaimedGb": 61.4, "savingKrw": 254100, "activeUsers": 68 },
+    { "week": "W26", "reclaimedGb": 58.9, "savingKrw": 243700, "activeUsers": 71 },
+    { "week": "W27", "reclaimedGb": 67.3, "savingKrw": 278500, "activeUsers": 79 },
+    { "week": "W28", "reclaimedGb": 72.8, "savingKrw": 301300, "activeUsers": 84 },
+    { "week": "W29", "reclaimedGb": 79.1, "savingKrw": 327400, "activeUsers": 86 }
+  ],
+  "departments": [
+    {
+      "id": "eng",
+      "name": "엔지니어링",
+      "seats": 42,
+      "activeUsers": 36,
+      "reclaimedGb": 128.4,
+      "cleanableGb": 41.2,
+      "targetGb": 140
+    },
+    {
+      "id": "design",
+      "name": "디자인",
+      "seats": 18,
+      "activeUsers": 15,
+      "reclaimedGb": 64.8,
+      "cleanableGb": 38.5,
+      "targetGb": 70
+    },
+    {
+      "id": "ops",
+      "name": "경영지원",
+      "seats": 24,
+      "activeUsers": 14,
+      "reclaimedGb": 41.2,
+      "cleanableGb": 22.1,
+      "targetGb": 55
+    },
+    {
+      "id": "sales",
+      "name": "세일즈",
+      "seats": 28,
+      "activeUsers": 13,
+      "reclaimedGb": 48.6,
+      "cleanableGb": 26.4,
+      "targetGb": 75
+    },
+    {
+      "id": "hr",
+      "name": "피플",
+      "seats": 16,
+      "activeUsers": 8,
+      "reclaimedGb": 35.4,
+      "cleanableGb": 14.4,
+      "targetGb": 40
+    }
+  ]
+}

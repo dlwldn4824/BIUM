@@ -24,7 +24,12 @@ contextBridge.exposeInMainWorld("biumDesktop", {
     ipcRenderer.invoke("bium:disconnectSpace", spaceId),
   getConfig: () => ipcRenderer.invoke("bium:getConfig"),
   setConfig: (partial) => ipcRenderer.invoke("bium:setConfig", partial || {}),
+  saveNaverCredentials: (payload) =>
+    ipcRenderer.invoke("bium:saveNaverCredentials", payload || {}),
+  keepOne: (payload) => ipcRenderer.invoke("bium:keepOne", payload || {}),
   setTrayBadge: (n) => ipcRenderer.invoke("bium:setTrayBadge", n),
+  fitMiniHeight: (height) =>
+    ipcRenderer.invoke("bium:fitMiniHeight", height),
   onScanProgress: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on("bium:scan-progress", handler);
@@ -60,5 +65,11 @@ contextBridge.exposeInMainWorld("biumDesktop", {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on("bium:config", handler);
     return () => ipcRenderer.removeListener("bium:config", handler);
+  },
+  onOpenGoogleSettings: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on("bium:open-google-settings", handler);
+    return () =>
+      ipcRenderer.removeListener("bium:open-google-settings", handler);
   },
 });

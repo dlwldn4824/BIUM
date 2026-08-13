@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BIUM Org · 절감 KPI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">⌂</span>
+          <div>
+            <p class="brand-kicker">BIUM for Work</p>
+            <h1>조직 절감 KPI</h1>
+          </div>
+        </div>
+        <div class="top-meta">
+          <label class="period">
+            <span>기간</span>
+            <select id="periodSelect" aria-label="기간 선택">
+              <option value="2026-08" selected>2026년 8월</option>
+              <option value="2026-07">2026년 7월</option>
+            </select>
+          </label>
+          <p class="updated" id="updatedAt">업데이트 —</p>
+        </div>
+      </header>
+
+      <section class="hero" aria-label="핵심 KPI">
+        <article class="kpi kpi-primary">
+          <p class="kpi-label">이번 달 데이터 절감</p>
+          <p class="kpi-value" id="kpiReclaimed">—</p>
+          <p class="kpi-sub" id="kpiReclaimedSub">목표 대비 —</p>
+          <div class="meter" aria-hidden="true"><i id="meterReclaimed"></i></div>
+        </article>
+        <article class="kpi">
+          <p class="kpi-label">비용 절감 (연환산)</p>
+          <p class="kpi-value" id="kpiMoney">—</p>
+          <p class="kpi-sub" id="kpiMoneySub">클라우드·스토리지 부담 추정</p>
+        </article>
+        <article class="kpi">
+          <p class="kpi-label">탄소 절감 (연환산)</p>
+          <p class="kpi-value" id="kpiCarbon">—</p>
+          <p class="kpi-sub">공개 추정치 오더 · 개인 실측 아님</p>
+        </article>
+        <article class="kpi">
+          <p class="kpi-label">활성 사용자</p>
+          <p class="kpi-value" id="kpiUsers">—</p>
+          <p class="kpi-sub" id="kpiUsersSub">도입률 —</p>
+          <div class="meter" aria-hidden="true"><i id="meterAdoption"></i></div>
+        </article>
+      </section>
+
+      <section class="grid-main">
+        <article class="panel forecast">
+          <div class="panel-head">
+            <h2>다음 달 기대 절감</h2>
+            <span class="chip" id="forecastConfidence">신뢰도 —</span>
+          </div>
+          <p class="forecast-lead" id="forecastLead">—</p>
+          <div class="forecast-range" id="forecastRange"></div>
+          <ul class="drivers" id="forecastDrivers"></ul>
+          <p class="footnote">
+            최근 주간 절감 추세 × 활성 사용자 증가를 단순 회귀한 해커톤용 추정치입니다.
+            실서비스에서는 텔레메트리(절감 GB·액션 완료)를 집계해 갱신합니다.
+          </p>
+        </article>
+
+        <article class="panel trend">
+          <div class="panel-head">
+            <h2>주간 절감 추이</h2>
+            <span class="chip quiet">GB / 주</span>
+          </div>
+          <canvas id="trendCanvas" width="640" height="220" aria-label="주간 절감 차트"></canvas>
+          <div class="legend">
+            <span><i class="swatch reclaimed"></i>절감 GB</span>
+            <span><i class="swatch users"></i>활성 사용자</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid-secondary">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>KPI 달성률</h2>
+          </div>
+          <ul class="score" id="scoreList"></ul>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>부서별 절감</h2>
+            <span class="chip quiet">목표 대비</span>
+          </div>
+          <div class="table-wrap">
+            <table class="dept-table">
+              <thead>
+                <tr>
+                  <th>부서</th>
+                  <th>활성</th>
+                  <th>절감</th>
+                  <th>잔여 후보</th>
+                  <th>목표</th>
+                </tr>
+              </thead>
+              <tbody id="deptBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <footer class="foot">
+        <p>
+          BIUM Org Dashboard · 데모 데이터
+          <code>org-dashboard/data/sample.json</code>
+          · 실연동 시 Electron → 집계 API → 이 화면
+        </p>
+        <a class="open-sample" href="data/sample.json" target="_blank" rel="noreferrer"
+          >스키마 보기</a
+        >
+      </footer>
+    </div>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

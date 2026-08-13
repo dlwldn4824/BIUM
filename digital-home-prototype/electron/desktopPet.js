@@ -482,23 +482,31 @@ class DesktopPetController {
         carry: false,
         clickThrough: true,
       });
-      await this.wait(600);
+      await this.wait(280);
       this.speech = "";
       this.pushView();
 
       const send = (p) => {
         if (this.summonRequested) return;
-        if (p.phase === "walk" || p.phase === "search" || p.phase === "start") {
+        if (
+          p.phase === "walk" ||
+          p.phase === "search" ||
+          p.phase === "start" ||
+          p.phase === "indexed"
+        ) {
           const loc = petLocation.fromAgent(p.agent || "mac-local");
           this._publishLocation(loc, true);
           if (p.agent === "windows-peer") this._device = "windows";
           else if (p.agent === "gdrive") this._device = "mac";
           else this._device = "mac";
 
-          // Remote spaces: leave the Mac desktop (dog is "elsewhere")
-          if (p.agent === "windows-peer" || p.agent === "gdrive" || p.agent === "mail") {
+          // Remote spaces: briefly leave Mac (no long theater)
+          if (
+            p.agent === "windows-peer" ||
+            p.agent === "gdrive" ||
+            p.agent === "mail"
+          ) {
             if (this.visible) {
-              // fire-and-forget depart — scan continues
               this._departOffscreen(loc).catch(() => {});
             }
           } else if (p.agent === "mac-local" && !this.visible) {
@@ -524,13 +532,14 @@ class DesktopPetController {
         scanDone = true;
       });
 
-      // Walk Mac desktop while still local
+      // Short Mac pace while scanning — no multi-minute walk loop
       const left = area.x + 36;
       const right = area.x + area.width - PET_W - 36;
       let towardRight = true;
-      while (!scanDone && this.busy && !this.abortExplore) {
+      let paces = 0;
+      while (!scanDone && this.busy && !this.abortExplore && paces < 6) {
         if (!this.visible) {
-          await this.wait(400);
+          await this.wait(200);
           continue;
         }
         const target = towardRight ? right : left;
@@ -538,16 +547,21 @@ class DesktopPetController {
           dx: target - this.x,
           facing: towardRight ? "right" : "left",
           state: "run",
-          step: 8,
-          ms: 28,
+          step: 12,
+          ms: 22,
         });
+        paces += 1;
         if (scanDone || this.abortExplore) break;
         this.setPose({
           state: "search",
-          speech: this.speech || "MacBook 살펴보는 중...",
+          speech: this.speech || "살펴보는 중...",
         });
-        await this.wait(500);
+        await this.wait(180);
         towardRight = !towardRight;
+      }
+      // If scan still running, wait quietly (status updates via Mini)
+      while (!scanDone && this.busy && !this.abortExplore) {
+        await this.wait(200);
       }
 
       const scan = await scanPromise;
@@ -556,52 +570,16 @@ class DesktopPetController {
         if (early) return early;
       }
 
-      // Staged remote hop if still on-screen
-      if (this.visible) {
-        await this._departOffscreen("windows-peer");
-        await this.wait(800);
-      } else {
-        this._publishLocation("windows-peer", true);
-        await this.wait(600);
-      }
-
-      {
-        const early = await this._finishIfSummoned(scan);
-        if (early) return early;
-      }
-
-      // Brief "on Desktop" presence for demo
-      this._device = "windows";
-      await this._arriveFromLeft("Desktop 살펴볼게요");
-      this._publishLocation("windows-peer", true);
-      this.setPose({ state: "search", speech: "Desktop 살펴보는 중..." });
-      await this.wait(1200);
-
-      {
-        const early = await this._finishIfSummoned(scan);
-        if (early) return early;
-      }
-
-      // Drive → Mail legs (away; Mini shows footprints + status)
-      await this._departOffscreen("gdrive");
-      await this.wait(700);
-      {
-        const early = await this._finishIfSummoned(scan);
-        if (early) return early;
-      }
-      this._publishLocation("mail", true);
-      await this.wait(900);
-      {
-        const early = await this._finishIfSummoned(scan);
-        if (early) return early;
-      }
-
+      // Skip long Windows→Drive→Mail theater — scan already covered sources.
       const primary = scan?.primary;
       const files = primary?.files || [];
       if (files.length >= 2) {
-        // Come home carrying the find
         this._device = "mac";
-        await this._arriveFromLeft("가져왔어!");
+        if (!this.visible) await this._arriveFromLeft("가져왔어!");
+        else {
+          this.setVisible(true);
+          this._publishLocation("home", false);
+        }
         this._publishLocation("home", false);
         this.setPose({
           state: "found",
@@ -609,19 +587,12 @@ class DesktopPetController {
           speech: "어? 똑같은 걸 찾았어!",
           clickThrough: false,
         });
-        await this.wait(900);
-        await this.moveBy({
-          dx: area.x + area.width - PET_W - 40 - this.x,
-          facing: "right",
-          state: "carry",
-          step: 10,
-          ms: 26,
-        });
+        await this.wait(450);
         const n = files.length;
         this.setPose({
           state: "carry",
           carry: true,
-          speech: `이름은 다르지만 내용이 같은 파일 ${n}개를 찾았어!`,
+          speech: `같은 파일 ${n}곳을 찾았어!`,
           clickThrough: false,
         });
         opts.onFound?.(primary);
@@ -634,14 +605,14 @@ class DesktopPetController {
         if (early) return early;
       }
 
-      await this._arriveFromLeft("끝났어");
+      if (!this.visible) await this._arriveFromLeft("끝났어");
       this.sleepInCorner();
       this.setPose({
         state: "sleep",
-        speech: "지금은 깨끗해요",
+        speech: "끝났어요",
         clickThrough: false,
       });
-      await this.wait(1400);
+      await this.wait(500);
       this.speech = "";
       this.pushView();
       this.enableHomeInteraction();

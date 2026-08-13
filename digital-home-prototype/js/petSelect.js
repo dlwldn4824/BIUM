@@ -48,8 +48,8 @@ window.BiumPet = (() => {
     return CATALOG[id] || CATALOG[DEFAULT];
   }
 
-  async function create(el, root) {
-    const meta = getMeta();
+  async function createForId(id, el, root) {
+    const meta = getMeta(id);
     if (meta.kind === "gif") {
       const res = await fetch(`${meta.base}/pet.json?v=paw1`);
       const manifest = await res.json();
@@ -57,6 +57,10 @@ window.BiumPet = (() => {
     }
     // Neko atlas via RetrieverSprite (loads its own manifest)
     return new window.RetrieverSprite(el, root);
+  }
+
+  async function create(el, root) {
+    return createForId(getId(), el, root);
   }
 
   function setId(id) {
@@ -68,5 +72,15 @@ window.BiumPet = (() => {
     return id;
   }
 
-  return { KEY, DEFAULT, CATALOG, read, getId, getMeta, setId, create };
+  return {
+    KEY,
+    DEFAULT,
+    CATALOG,
+    read,
+    getId,
+    getMeta,
+    setId,
+    create,
+    createForId,
+  };
 })();

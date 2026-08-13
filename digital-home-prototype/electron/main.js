@@ -13,7 +13,12 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { resolveBinary } = require("./localAgent");
-const { runFederatedScan, spacesFromIndex, ensureDevices } = require("./orchestrator");
+const {
+  runFederatedScan,
+  spacesFromIndex,
+  ensureDevices,
+  refreshLiveQuotas,
+} = require("./orchestrator");
 const { DesktopPetController } = require("./desktopPet");
 const petLocation = require("./petLocation");
 const trayState = require("./trayState");
@@ -60,9 +65,31 @@ let displayMode = "mini";
 /** last found duplicate group for panel */
 let lastPrimary = null;
 
-/** Compact TrayPopover — tall enough for devices + stacked CTAs */
+/** Compact TrayPopover — height grows with connected devices */
 const MINI_W = 300;
-const MINI_H = 680;
+const MINI_H_MIN = 460;
+const MINI_H_MAX = 820;
+const MINI_H_DEFAULT = 540;
+/** Match Mini CSS theme surfaces — avoids cream strip under Midnight UI */
+const WINDOW_BG = {
+  cozy: "#f7f0e6",
+  noir: "#0c1118",
+};
+/** @type {number} */
+let miniH = MINI_H_DEFAULT;
+
+function themeBackground(theme) {
+  return theme === "noir" ? WINDOW_BG.noir : WINDOW_BG.cozy;
+}
+
+function applyWindowBackground(theme) {
+  if (!win) return;
+  try {
+    win.setBackgroundColor(themeBackground(theme));
+  } catch {
+    /* ignore */
+  }
+}
 /** @type {number} */
 let trayBadge = 0;
 const HOME_W = 1280;
@@ -146,8 +173,26 @@ function positionMiniNearTray() {
     y = Math.round(cursor.y + 12);
   }
   x = Math.min(Math.max(work.x + 8, x), work.x + work.width - MINI_W - 8);
-  y = Math.min(Math.max(work.y + 8, y), work.y + work.height - MINI_H - 8);
-  win.setBounds({ x, y, width: MINI_W, height: MINI_H }, false);
+  y = Math.min(Math.max(work.y + 8, y), work.y + work.height - miniH - 8);
+  win.setBounds({ x, y, width: MINI_W, height: miniH }, false);
+}
+
+function setMiniHeight(height) {
+  const next = Math.round(Number(height) || MINI_H_DEFAULT);
+  miniH = Math.min(MINI_H_MAX, Math.max(MINI_H_MIN, next));
+  if (win && displayMode === "mini") {
+    const b = win.getBounds();
+    const display = screen.getDisplayMatching(b).workArea;
+    const y = Math.min(
+      Math.max(display.y + 8, b.y),
+      display.y + display.height - miniH - 8
+    );
+    win.setBounds(
+      { x: b.x, y, width: MINI_W, height: miniH },
+      false
+    );
+  }
+  return miniH;
 }
 
 function applyHomeBounds() {
@@ -158,13 +203,15 @@ function applyHomeBounds() {
   const x = Math.round(display.x + (display.width - width) / 2);
   const y = Math.round(display.y + (display.height - height) / 2);
   win.setMinimumSize(1100, 720);
+  win.setMaximumSize(0, 0); // clear mini max constraints
   win.setBounds({ x, y, width, height }, true);
   win.setResizable(true);
 }
 
 function applyMiniBounds() {
   if (!win) return;
-  win.setMinimumSize(280, 300);
+  win.setMinimumSize(MINI_W, MINI_H_MIN);
+  win.setMaximumSize(MINI_W, MINI_H_MAX);
   win.setResizable(false);
   positionMiniNearTray();
 }
@@ -177,15 +224,18 @@ function applyDisplayMode(mode) {
 }
 
 function createPanelWindow() {
+  const initialTheme = store.getConfig()?.theme === "noir" ? "noir" : "cozy";
   win = new BrowserWindow({
     width: MINI_W,
-    height: MINI_H,
-    minWidth: 280,
-    minHeight: 420,
+    height: MINI_H_DEFAULT,
+    minWidth: MINI_W,
+    minHeight: MINI_H_MIN,
+    maxWidth: MINI_W,
+    maxHeight: MINI_H_MAX,
     show: false,
     // Empty title — avoids native label under traffic lights
     title: "",
-    backgroundColor: "#f8f2e7",
+    backgroundColor: themeBackground(initialTheme),
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 14 },
     roundedCorners: true,
@@ -212,6 +262,7 @@ function createPanelWindow() {
 
   // Menu-bar utility: do NOT auto-open dashboard — tray click opens popover
   win.once("ready-to-show", () => {
+    applyWindowBackground(store.getConfig()?.theme);
     applyDisplayMode("mini");
   });
 
@@ -338,6 +389,10 @@ async function runDesktopPetScan(options = {}) {
     primary: out?.scan?.primary || lastPrimary,
     groups: out?.scan?.groups,
     spaces: out?.scan?.spaces,
+    summary:
+      out?.scan?.summary ||
+      out?.scan?.result?.summary ||
+      indexStore.getSummary(),
     mailCleanup: out?.scan?.mailCleanup || indexStore.getMailCleanup(),
     candidates: out?.scan?.candidates || out?.scan?.result?.candidates,
     similarPhotos: out?.scan?.similarPhotos,
@@ -473,6 +528,24 @@ function toggleMiniFromTray() {
   }
 }
 
+function openGoogleClientSettingsUi() {
+  applyDisplayMode("mini");
+  win?.webContents.send("bium:display-mode", "mini");
+  showWindow();
+  const send = () => {
+    try {
+      win?.webContents.send("bium:open-google-settings");
+    } catch {
+      /* ignore */
+    }
+  };
+  if (win?.webContents.isLoading()) {
+    win.webContents.once("did-finish-load", () => setTimeout(send, 200));
+  } else {
+    setTimeout(send, 250);
+  }
+}
+
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
     {
@@ -483,6 +556,10 @@ function buildTrayMenu() {
         win?.webContents.send("bium:display-mode", "mini");
         showWindow();
       },
+    },
+    {
+      label: "Google Client ID…",
+      click: () => openGoogleClientSettingsUi(),
     },
     {
       label: "메뉴바에 다시 고정",
@@ -642,6 +719,13 @@ app.whenReady().then(() => {
   setTimeout(hideDockIcon, 400);
   setTimeout(() => logTrayBounds("settled-2"), 2000);
 
+  const wantGoogleSettings =
+    process.argv.includes("--open-google-settings") ||
+    process.env.BIUM_OPEN_GOOGLE_SETTINGS === "1";
+  if (wantGoogleSettings) {
+    setTimeout(() => openGoogleClientSettingsUi(), 900);
+  }
+
   lanPeer
     .start({ alias: osHostname() })
     .then((id) => console.log("[BIUM LAN]", id))
@@ -767,6 +851,11 @@ ipcMain.handle("bium:petVisible", (_e, on) => {
   };
 });
 
+ipcMain.handle("bium:fitMiniHeight", (_e, height) => {
+  if (displayMode !== "mini") return miniH;
+  return setMiniHeight(height);
+});
+
 ipcMain.handle("bium:setTrayBadge", (_e, n) => {
   trayBadge = Math.max(0, Number(n) || 0);
   if (trayBadge > 0) trayState.setFound(trayBadge);
@@ -799,21 +888,42 @@ ipcMain.handle("bium:scanLocal", async (event, options = {}) => {
   }
 });
 
-ipcMain.handle("bium:getConnections", () => {
-  ensureDevices();
+ipcMain.handle("bium:getConnections", async () => {
+  try {
+    await refreshLiveQuotas();
+  } catch {
+    ensureDevices();
+    try {
+      require("./orchestrator").refreshMacDiskQuota();
+    } catch {
+      /* ignore */
+    }
+  }
+  const groups = indexStore.findCrossDeviceDuplicates();
   return {
     ok: true,
     status: store.connectionStatus(),
     spaces: spacesFromIndex(),
+    summary: indexStore.getSummary(),
+    groups,
+    candidates: {
+      exact: { groups },
+    },
     mailCleanup: indexStore.getMailCleanup(),
     index: indexStore.snapshot(),
   };
 });
 
 function publishConnections() {
+  try {
+    require("./orchestrator").refreshMacDiskQuota();
+  } catch {
+    /* ignore */
+  }
   const payload = {
     status: store.connectionStatus(),
     spaces: spacesFromIndex(),
+    summary: indexStore.getSummary(),
     mailCleanup: indexStore.getMailCleanup(),
   };
   broadcast("bium:connections", payload);
@@ -824,64 +934,169 @@ async function connectGoogleSpace() {
   const cfg = store.getConfig();
   ensureDevices();
   if (!cfg.googleClientId) {
-    const { QUOTA } = require("./peers/gdriveDemo");
     indexStore.setDeviceConnected("gdrive", true);
-    indexStore.setDeviceQuota("gdrive", QUOTA.usedBytes, QUOTA.totalBytes);
+    indexStore.setDeviceQuota("gdrive", null, null, { demo: true });
+    indexStore.setDeviceDemo("gdrive", true);
     publishConnections();
     return {
       ok: true,
       demo: true,
       spaceId: "gdrive",
-      message: "Google Drive를 연결했어요",
+      message:
+        "데모 Drive예요. 설정에서 Google Client ID를 넣으면 실제 용량·파일을 불러와요",
     };
   }
   const google = require("./providers/google");
+  // Scope widened to drive (trash) — force re-consent when reconnecting.
   const res = await google.connect();
   indexStore.setDeviceConnected("gdrive", true);
   try {
     const about = await google.aboutStorage();
-    if (about) indexStore.setDeviceQuota("gdrive", about.usage, about.limit || 0);
+    if (about) {
+      indexStore.setDeviceQuota("gdrive", about.usage, about.limit || 0, {
+        demo: false,
+      });
+      indexStore.setDeviceDemo("gdrive", false);
+    }
   } catch {
     /* ignore */
   }
   publishConnections();
-  return { ok: true, spaceId: "gdrive", ...res };
+  return {
+    ok: true,
+    demo: false,
+    spaceId: "gdrive",
+    message: "Google Drive를 연결했어요 · MD5로 로컬과 맞춰 볼 수 있어요",
+    ...res,
+  };
 }
 
 async function connectGmailSpace() {
   const cfg = store.getConfig();
   ensureDevices();
-  const { buildMailCleanup, QUOTA } = require("./peers/gmailDemo");
+  const { QUOTA } = require("./peers/gmailDemo");
 
-  let mailCleanup = buildMailCleanup();
-  let demo = true;
+  if (!cfg.googleClientId) {
+    return {
+      ok: false,
+      needClientId: true,
+      spaceId: "gmail",
+      error:
+        "Gmail 실연결에는 Google Client ID가 필요해요. 설정에서 입력한 뒤 다시 연결해 주세요",
+    };
+  }
 
-  if (cfg.googleClientId) {
+  const google = require("./providers/google");
+  try {
+    const access = await google.ensureGmailAccess();
+    const mailCleanup = await google.listMailCleanupRecommendations();
+    const spam = mailCleanup.spamCount || 0;
+    const unread = mailCleanup.unreadCount || 0;
+    const email = mailCleanup.email || access.email || null;
+
+    // Shared Google storage when available (Gmail + Drive)
+    let used = QUOTA.usedBytes;
+    let total = QUOTA.totalBytes;
+    let quotaDemo = true;
     try {
-      const google = require("./providers/google");
-      // Reuse Google session when possible; otherwise run OAuth with Gmail scopes
-      if (!store.connectionStatus().google) {
-        await google.connect();
+      const about = await google.aboutStorage();
+      if (about?.limit) {
+        used = about.usage;
+        total = about.limit;
+        quotaDemo = false;
       }
-      mailCleanup = await google.listMailCleanupRecommendations();
-      if (!mailCleanup?.groups?.length) mailCleanup = buildMailCleanup();
-      else demo = false;
     } catch {
-      mailCleanup = buildMailCleanup();
-      demo = true;
+      /* keep placeholder */
+    }
+
+    indexStore.setDeviceConnected("gmail", true);
+    indexStore.setDeviceQuota("gmail", used, total, { demo: quotaDemo });
+    indexStore.setDeviceDemo("gmail", false);
+    indexStore.setMailCleanup(mailCleanup);
+    // Drive can share the same Google session
+    if (store.connectionStatus().google) {
+      indexStore.setDeviceConnected("gdrive", true);
+    }
+    publishConnections();
+
+    const n = (mailCleanup.groups || []).length;
+    const message = n
+      ? `Gmail 연결 · 스팸 ${spam.toLocaleString()} · 90일+ 안읽음 ${unread.toLocaleString()}`
+      : email
+        ? `Gmail(${email}) 연결 · 스팸·오래된 안읽음이 거의 없어요`
+        : "Gmail을 연결했어요 · 지금 메일함은 깨끗한 편이에요";
+
+    return {
+      ok: true,
+      demo: false,
+      spaceId: "gmail",
+      email,
+      message,
+      mailCleanup,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      spaceId: "gmail",
+      error: google.friendlyGmailError(err),
+      needGmailApi: /Gmail API|사용 설정/i.test(
+        google.friendlyGmailError(err)
+      ),
+    };
+  }
+}
+
+async function connectNaverSpace() {
+  ensureDevices();
+  const naver = require("./providers/naverImap");
+  const {
+    QUOTA,
+    buildDemoNaverIndex,
+    buildNaverMailCleanup,
+  } = require("./peers/naverDemo");
+
+  if (naver.isConnected()) {
+    try {
+      await naver.testConnection();
+      indexStore.setDeviceConnected("naver-mail", true);
+      indexStore.setDeviceQuota("naver-mail", QUOTA.usedBytes, QUOTA.totalBytes);
+      publishConnections();
+      return {
+        ok: true,
+        demo: false,
+        spaceId: "naver-mail",
+        message:
+          "네이버 메일을 연결했어요 · 탐색 시 첨부 MD5로 로컬·Drive와 맞춰 봐요",
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error:
+          err.message ||
+          "IMAP 연결 실패 · 앱 비밀번호·IMAP 사용함을 확인해 주세요",
+        needCredentials: true,
+      };
     }
   }
 
-  indexStore.setDeviceConnected("gmail", true);
-  indexStore.setDeviceQuota("gmail", QUOTA.usedBytes, QUOTA.totalBytes);
-  indexStore.setMailCleanup(mailCleanup);
+  // Demo path — same contentKey bridge as Drive demo
+  const seed = indexStore.listEntries().filter(
+    (e) => e.deviceId === "mac-local" || e.deviceId === "gdrive"
+  );
+  const demo = buildDemoNaverIndex(seed);
+  indexStore.upsertDeviceEntries("naver-mail", demo);
+  indexStore.setDeviceConnected("naver-mail", true);
+  indexStore.setDeviceQuota("naver-mail", QUOTA.usedBytes, QUOTA.totalBytes);
+  const cleanup = buildNaverMailCleanup();
+  const existing = indexStore.getMailCleanup();
+  if (!existing?.groups?.length) indexStore.setMailCleanup(cleanup);
   publishConnections();
   return {
     ok: true,
-    demo,
-    spaceId: "gmail",
-    message: "Gmail을 연결했어요 · 스팸·오래된 안읽음 정리를 추천해요",
-    mailCleanup,
+    demo: true,
+    spaceId: "naver-mail",
+    message:
+      "데모 네이버 메일이에요. 설정에서 앱 비밀번호를 넣으면 IMAP 실연결돼요",
   };
 }
 
@@ -891,6 +1106,7 @@ async function connectSpace(spaceId) {
 
   if (id === "gdrive") return connectGoogleSpace();
   if (id === "gmail" || id === "mail") return connectGmailSpace();
+  if (id === "naver-mail" || id === "naver") return connectNaverSpace();
 
   if (id === "onedrive") {
     // Hackathon demo — no Microsoft OAuth client required
@@ -911,14 +1127,21 @@ async function connectSpace(spaceId) {
 
   if (id === "windows-peer") {
     const { QUOTA } = require("./peers/windowsStub");
+    store.setWindowsPeerLinked(true);
     indexStore.setDeviceConnected("windows-peer", true);
-    indexStore.setDeviceQuota("windows-peer", QUOTA.usedBytes, QUOTA.totalBytes);
+    indexStore.setDeviceQuota(
+      "windows-peer",
+      QUOTA.usedBytes,
+      QUOTA.totalBytes,
+      { demo: true }
+    );
+    indexStore.setDeviceDemo("windows-peer", true);
     publishConnections();
     return {
       ok: true,
       demo: true,
       spaceId: "windows-peer",
-      message: "Windows Desktop을 연결했어요",
+      message: "Windows Desktop을 연결했어요 (데모 용량 · LAN이면 실측으로 바뀌어요)",
     };
   }
 
@@ -961,6 +1184,17 @@ ipcMain.handle("bium:disconnectSpace", (_e, spaceId) => {
   if (id === "gmail" || id === "mail") {
     indexStore.setMailCleanup(null);
   }
+  if (id === "naver-mail" || id === "naver") {
+    try {
+      require("./providers/naverImap").disconnect();
+    } catch {
+      /* ignore */
+    }
+    indexStore.upsertDeviceEntries("naver-mail", []);
+  }
+  if (id === "windows-peer") {
+    store.setWindowsPeerLinked(false);
+  }
   if (id && id !== "mac-local") {
     indexStore.setDeviceConnected(id, false);
   }
@@ -968,11 +1202,57 @@ ipcMain.handle("bium:disconnectSpace", (_e, spaceId) => {
   return { ok: true, spaceId: id };
 });
 
-ipcMain.handle("bium:getConfig", () => store.getConfig());
+ipcMain.handle("bium:getConfig", () => store.getPublicConfig());
 ipcMain.handle("bium:setConfig", (_e, partial) => {
   const next = store.setConfig(partial || {});
+  const pub = store.getPublicConfig();
   if (partial && Object.prototype.hasOwnProperty.call(partial, "theme")) {
-    broadcast("bium:config", next);
+    applyWindowBackground(pub.theme || next.theme);
+    broadcast("bium:config", pub);
   }
-  return next;
+  return pub;
+});
+
+ipcMain.handle("bium:saveNaverCredentials", async (_e, payload) => {
+  try {
+    const naver = require("./providers/naverImap");
+    const saved = naver.saveCredentials(payload || {});
+    try {
+      await naver.testConnection();
+      indexStore.setDeviceConnected("naver-mail", true);
+      publishConnections();
+      return {
+        ok: true,
+        email: saved.email,
+        tested: true,
+        message: "네이버 IMAP 연결에 성공했어요",
+      };
+    } catch (err) {
+      return {
+        ok: true,
+        email: saved.email,
+        tested: false,
+        warning:
+          err.message ||
+          "저장은 했어요. IMAP 사용함·앱 비밀번호를 다시 확인해 주세요",
+      };
+    }
+  } catch (err) {
+    return { ok: false, error: err.message || "저장 실패" };
+  }
+});
+
+ipcMain.handle("bium:keepOne", async (_e, payload) => {
+  try {
+    const { executeKeepOne } = require("./actions/keepOne");
+    return await executeKeepOne(payload || {});
+  } catch (err) {
+    return {
+      ok: false,
+      error: err.message || "정리에 실패했어요",
+      trashed: [],
+      skipped: [],
+      errors: [{ error: err.message }],
+    };
+  }
 });
