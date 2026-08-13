@@ -109,7 +109,8 @@ flowchart TB
     ROOTS --> EXACT["Exact 싼 확정 패스<br/>512KB 이상 · 약 28초 예산"]
     EXACT --> SIZE["크기 버킷<br/>다른 크기는 해시 생략"]
     SIZE --> CZK["Czkawka dup<br/>디렉터리 전체에서 size-first · BLAKE3"]
-    SIZE -. "CLI 실패 시" .-> NODE["Node.js crypto fallback<br/>목록 최대 280개 · 해시 상위 220개"]
+    SIZE -. "CLI 실행 중 실패" .-> NODE["Node.js crypto fallback<br/>목록 최대 280개 · 해시 상위 220개"]
+    SIZE -. "auto 모드에서 CLI 없음" .-> FIXTURE["중복 fixture<br/>데모 결과 · 실제 스캔 아님"]
     NODE --> CONFIRM["의심 그룹만 full-file MD5"]
     CZK --> EXACT_GROUP["완전 동일 후보"]
     CONFIRM --> EXACT_GROUP
@@ -121,7 +122,7 @@ flowchart TB
     direction TB
     LAN["BIUM LAN Peer<br/>LocalSend 방식 참고"]
     UDP["UDP multicast 224.0.0.167:53821<br/>피어 발견"]
-    HTTP["HTTP fingerprint API<br/>size · hash · contentKey만"]
+    HTTP["HTTP fingerprint API<br/>name · path · size · hash · contentKey"]
     LAN --> UDP --> HTTP
     WIN["Windows Peer<br/>실 LAN 또는 demo stub"]
     HTTP --> WIN
@@ -132,20 +133,22 @@ flowchart TB
 
   subgraph CLOUD["3. 클라우드 · 메일 실연결"]
     direction TB
-    GOAUTH["Google OAuth 2.0<br/>Desktop authorization code flow"]
-    DRIVE["Google Drive API<br/>metadata · size · md5Checksum"]
-    GMAIL["Gmail API readonly<br/>spam · 90일 이상 안읽음"]
+    GOAUTH["Google OAuth 2.0 + PKCE<br/>loopback authorization code flow"]
+    DRIVE["Google Drive API<br/>5MB 이상 · 최대 40개 · md5Checksum"]
+    GMAIL["Gmail API readonly<br/>spam · 90일 이상 안읽음 · 추천 전용"]
     NAVER["Naver IMAP TLS 993<br/>imapflow"]
-    ATTACH["1MB 이상 · 365일 이상 첨부<br/>크기 겹침만 MD5 · 최대 12개"]
+    ATTACH["1MB 이상 · 365일 이상 첨부<br/>크기 겹침만 MD5 · 최대 12개 · 추천 전용"]
     GOAUTH --> DRIVE
     GOAUTH --> GMAIL
     NAVER --> ATTACH
     ONEDRIVE["OneDrive<br/>현재 연결 자리만 있음 · 실 스캔 미구현"]
+    DEMO["Demo fallback<br/>Drive · Naver · Windows synthetic index"]
   end
 
   ORCH --> GOAUTH
   ORCH --> NAVER
   ORCH -. "placeholder" .-> ONEDRIVE
+  ORCH -. "인증 없음 또는 연결 실패" .-> DEMO
 
   DRIVE --> OVERLAP["Drive와 크기가 겹치는 로컬만<br/>full MD5 · 최대 36개 · 동시 6"]
   EXACT_GROUP --> OVERLAP
@@ -172,7 +175,7 @@ flowchart TB
   class PHOTO,PHASH,CZK,LAN,NAVER oss
   class ROOTS,DOC,STEM,EXACT,SIZE,NODE,CONFIRM local
   class GOAUTH,DRIVE,GMAIL,ATTACH cloud
-  class ONEDRIVE inactive
+  class ONEDRIVE,FIXTURE,DEMO inactive
 ```
 
 #### 실제 사용 OSS와 “모델” 구분
@@ -218,11 +221,12 @@ flowchart LR
 | 구분 | 실제 연결/역할 | 전송 데이터 |
 |------|----------------|-------------|
 | **Mac 로컬** | Czkawka + Node fallback | 외부 전송 없음 |
-| **LAN Peer** | UDP 발견 + HTTP fingerprint API | 파일 크기·해시·contentKey, 파일 본문 제외 |
-| **Google Drive** | OAuth 2.0 + Drive API | 파일 메타데이터·`md5Checksum`; 삭제 시 `trashed=true` |
-| **Gmail** | Gmail API `readonly` | 스팸·오래된 안읽음 메타데이터/건수 |
-| **Naver Mail** | `imapflow`, TLS 993 | 오래된 대용량 첨부를 선택적으로 읽어 MD5 |
-| **OneDrive** | UI/디바이스 자리만 존재 | 실 스캔·삭제 미구현 |
+| **LAN Peer** | UDP 발견 + HTTP fingerprint API | 이름·경로·크기·해시·contentKey, 파일 본문 제외 |
+| **Google Drive** | OAuth 2.0 PKCE + Drive API | 5MB 이상 파일 메타데이터·`md5Checksum`; 삭제 시 `trashed=true` |
+| **Gmail** | Gmail API `readonly` | 스팸·오래된 안읽음 메타데이터/건수; 삭제 미연결 |
+| **Naver Mail** | `imapflow`, TLS 993 | 오래된 대용량 첨부를 선택적으로 읽어 MD5; 삭제는 메일함에서 직접 |
+| **OneDrive** | UI/디바이스 자리만 존재 | 실 OAuth·스캔·삭제 미구현 |
+| **Demo 경로** | Windows stub · Drive/Naver fallback · 중복 fixture | 합성 인덱스/후보이며 UI에서 demo로 표시 |
 
 ---
 
