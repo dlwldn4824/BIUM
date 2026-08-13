@@ -25,6 +25,8 @@ const {
   buildMailCleanup,
   QUOTA: MAIL_QUOTA,
 } = require("./peers/gmailDemo");
+const similarPhotos = require("./engines/similarPhotos");
+const similarDocs = require("./engines/similarDocs");
 
 function emit(send, payload) {
   if (typeof send === "function") send(payload);
@@ -469,8 +471,52 @@ async function runFederatedScan(options = {}) {
     });
   }
 
+  // ---- 6) Similarity tiers (photo stacks + doc review candidates) ----
+  emit(send, {
+    phase: "search",
+    room: "laptop",
+    agent: "mac-local",
+    text: "비슷한 사진·문서 묶음 살펴보는 중...",
+  });
+  let photoOut = { groups: [], pile: null, reclaimBytes: 0 };
+  let docOut = { groups: [], pile: null };
+  try {
+    photoOut = await similarPhotos.build({ useFixture: true });
+  } catch (err) {
+    emit(send, {
+      phase: "error",
+      text: err.message || "비슷한 사진 분석 실패",
+    });
+  }
+  try {
+    const entries = indexStore.listEntries().slice(0, 400);
+    docOut = await similarDocs.build({ useFixture: true, entries });
+  } catch (err) {
+    emit(send, {
+      phase: "error",
+      text: err.message || "비슷한 문서 분석 실패",
+    });
+  }
+  if (photoOut.pile?.groups?.length) piles.push(photoOut.pile);
+  if (docOut.pile?.groups?.length) piles.push(docOut.pile);
+  await wait(280);
+
+  const candidates = {
+    exact: { groups },
+    similarPhotos: { groups: photoOut.groups || [] },
+    similarDocs: { groups: docOut.groups || [] },
+  };
+
   const dupBytes = groups.reduce((s, g) => s + g.reclaimBytes, 0);
   const mailBytes = mailCleanup?.reclaimBytes || 0;
+  const photoBytes = photoOut.reclaimBytes || 0;
+
+  if (photoOut.groups?.length || docOut.groups?.length) {
+    emit(send, {
+      phase: "found",
+      text: "비슷한 사진·재확인 문서 묶음도 찾았어요",
+    });
+  }
 
   return {
     ok: true,
@@ -485,6 +531,9 @@ async function runFederatedScan(options = {}) {
     groups,
     spaces,
     mailCleanup,
+    candidates,
+    similarPhotos: photoOut.groups,
+    similarDocs: docOut.groups,
     result: {
       ok: true,
       scannedAt: new Date().toISOString(),
@@ -494,14 +543,18 @@ async function runFederatedScan(options = {}) {
         federated: "index",
         drive: driveMode,
         peer: peerMode,
+        photos: photoOut.source || "fixture",
+        docs: docOut.source || "fixture",
       },
       piles,
       spaces,
       mailCleanup,
+      candidates,
       summary: {
-        totalReclaimBytes: dupBytes + mailBytes,
+        totalReclaimBytes: dupBytes + mailBytes + photoBytes,
         duplicateBytes: dupBytes,
         mailBytes,
+        photoBytes,
       },
     },
   };

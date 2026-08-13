@@ -1,0 +1,21 @@
+{
+  "groups": [
+    {
+      "id": "doc-chic-deck",
+      "kind": "similar-doc",
+      "confidence": "review",
+      "title": "비슷한 발표 자료 4개",
+      "reason": "완전히 같은 파일은 아니에요. 버전 파일일 가능성이 높아요.",
+      "similarity": 0.91,
+      "count": 4,
+      "reclaimBytes": 0,
+      "actions": ["compare", "gather", "keep"],
+      "files": [
+        { "name": "CHIC_발표.pptx", "place": "MacBook / Documents", "size": "12MB", "modified": "2026-07-02" },
+        { "name": "CHIC_발표_최종.pptx", "place": "MacBook / Documents", "size": "13MB", "modified": "2026-07-18" },
+        { "name": "CHIC_발표_진짜최종.pptx", "place": "Desktop / Documents", "size": "14MB", "modified": "2026-08-01" },
+        { "name": "CHIC_발표_수정본.pptx", "place": "Google Drive / 학교", "size": "13MB", "modified": "2026-07-22" }
+      ]
+    }
+  ]
+}

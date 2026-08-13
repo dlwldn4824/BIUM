@@ -311,7 +311,7 @@ body[data-mode="home"] .mini-root {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .mini-stat-btn:hover {
@@ -333,14 +333,34 @@ body[data-mode="home"] .mini-root {
 .mini-stat-btn[aria-disabled="true"]:hover {
   background: var(--m-panel-2);
   border-color: var(--m-line);
+  box-shadow: none;
 }
 
-.mini-stat span {
+.mini-stat span,
+.mini-stat-label {
   display: block;
   font-size: 10px;
   font-weight: 600;
   color: var(--m-muted);
   margin-bottom: 2px;
+}
+
+.mini-stat-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.mini-stat-chev {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--m-pink);
+  opacity: 0;
+  transform: translateX(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .mini-stat strong {
@@ -349,6 +369,40 @@ body[data-mode="home"] .mini-root {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--m-ink);
+}
+
+/* Has discoveries — look tappable */
+.mini-stat-finds.is-live {
+  border-color: color-mix(in srgb, var(--m-pink) 55%, var(--m-line));
+  background: color-mix(in srgb, var(--m-pink) 12%, var(--m-panel-2));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--m-pink) 25%, transparent);
+  cursor: pointer;
+}
+
+.mini-stat-finds.is-live .mini-stat-label {
+  color: var(--m-ink);
+}
+
+.mini-stat-finds.is-live .mini-stat-chev {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.mini-stat-finds.is-live strong {
+  color: var(--m-pink);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--m-pink) 55%, transparent);
+}
+
+.mini-stat-finds.is-live:hover {
+  background: color-mix(in srgb, var(--m-pink) 18%, var(--m-panel));
+  border-color: var(--m-pink);
+}
+
+.mini-stat-finds.is-live:hover .mini-stat-chev {
+  transform: translateX(2px);
 }
 
 /* Connected devices — quiet list, not game HUD */
@@ -749,6 +803,47 @@ body[data-mode="mini"] .pixel-dialog.is-util {
   font-weight: 500;
   line-height: 1.4;
   color: var(--m-muted);
+}
+
+.util-sheet-lead small {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.util-tier-badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.util-tier-high {
+  color: #1f4f8a;
+  background: rgba(61, 124, 255, 0.14);
+}
+
+.util-tier-review {
+  color: #7a4b16;
+  background: rgba(232, 168, 106, 0.22);
+}
+
+[data-theme="noir"] .util-tier-high {
+  color: #9ec0ff;
+  background: rgba(61, 124, 255, 0.22);
+}
+
+[data-theme="noir"] .util-tier-review {
+  color: #ffd09a;
+  background: rgba(232, 168, 106, 0.18);
+}
+
+.util-stack-list {
+  max-height: 160px;
+  overflow: auto;
 }
 
 .util-sheet-note {

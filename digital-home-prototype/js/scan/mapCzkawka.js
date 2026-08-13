@@ -29,17 +29,19 @@ window.BiumScanMap = {
     if (keepId === "gdrive") {
       return {
         keepLabel: "Google Drive",
-        keepDesc: "클라우드 보관 · 모든 기기에서 접근 가능",
-        recommended: true,
-        reason: "여러 기기에서 접근할 수 있는 위치예요.",
+        keepDesc: "클라우드 보관 · 데이터센터 부하 지속",
+        recommended: false,
+        reason:
+          "Drive에 남기면 클라우드에 계속 쌓여요. 탄소 절감을 위해 로컬을 추천해요.",
       };
     }
     if (keepId === "desktop") {
       return {
         keepLabel: "Desktop",
-        keepDesc: "이 PC의 Desktop",
-        recommended: false,
-        reason: undefined,
+        keepDesc: "로컬 Desktop · 클라우드보다 환경에 유리",
+        recommended: true,
+        reason:
+          "Desktop에 남기면 Drive 복제를 줄여 탄소·구독 부담을 낮출 수 있어요.",
       };
     }
     if (keepId === "mail") {
@@ -51,10 +53,48 @@ window.BiumScanMap = {
     }
     return {
       keepLabel: "MacBook",
-      keepDesc: "현재 작업 기기",
+      keepDesc: "로컬 MacBook · 클라우드보다 환경에 유리",
       recommended: false,
-      reason: undefined,
+      reason:
+        "로컬에 남기면 클라우드 복제를 줄여 탄소 절감에 도움이 돼요.",
     };
+  },
+
+  /** Prefer local Desktop/Mac over Drive — cloud copies cost energy. */
+  preferLocalKeep(files) {
+    if (!files?.length) return files;
+    for (const f of files) {
+      f.recommended = false;
+      if (f.keepId === "gdrive" || f.deviceId === "gdrive") {
+        f.keepDesc = "클라우드 보관 · 데이터센터 부하 지속";
+        f.reason =
+          "Drive에 남기면 클라우드에 계속 쌓여요. 탄소 절감을 위해 로컬을 추천해요.";
+      }
+    }
+    const pick =
+      files.find(
+        (f) => f.keepId === "desktop" || f.deviceId === "windows-peer"
+      ) ||
+      files.find(
+        (f) => f.keepId === "laptop" || f.deviceId === "mac-local"
+      ) ||
+      files.find(
+        (f) => f.keepId !== "gdrive" && f.deviceId !== "gdrive" && f.keepId !== "mail"
+      );
+    if (pick) {
+      pick.recommended = true;
+      if (pick.keepId === "desktop" || pick.deviceId === "windows-peer") {
+        pick.keepLabel = pick.keepLabel || "Desktop";
+        pick.keepDesc = "로컬 Desktop · 클라우드보다 환경에 유리";
+        pick.reason =
+          "Desktop에 남기면 Drive 복제를 줄여 탄소·구독 부담을 낮출 수 있어요.";
+      } else {
+        pick.keepDesc = pick.keepDesc || "로컬 보관 · 클라우드보다 환경에 유리";
+        pick.reason =
+          "로컬에 남기면 클라우드 복제를 줄여 탄소 절감에 도움이 돼요.";
+      }
+    }
+    return files;
   },
 
   /**
@@ -164,7 +204,7 @@ window.BiumScanMap = {
                 ? "MacBook"
                 : km.keepLabel,
         keepDesc: km.keepDesc,
-        recommended: !!km.recommended || f.deviceId === "gdrive",
+        recommended: false,
         reason: km.reason,
         path: filePath,
         hash: f.hash,
@@ -183,11 +223,7 @@ window.BiumScanMap = {
       };
     });
 
-    // Prefer cloud as recommended if present
-    if (!mappedFiles.some((f) => f.recommended) && mappedFiles[0]) {
-      mappedFiles[0].recommended = true;
-      mappedFiles[0].reason = "가장 최근에 쓰인 사본으로 보여요.";
-    }
+    this.preferLocalKeep(mappedFiles);
 
     return {
       reclaimMb,

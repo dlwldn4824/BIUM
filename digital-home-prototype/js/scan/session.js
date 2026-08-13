@@ -62,6 +62,9 @@ window.BiumScanSession = (() => {
         const mail =
           res?.mailCleanup || res?.result?.mailCleanup || null;
         if (mail) window.BiumApp?.applyMailCleanup?.(mail);
+        const candidates =
+          res?.candidates || res?.result?.candidates || null;
+        if (candidates) window.BiumApp?.applyCandidates?.(candidates);
         return res;
       }
 
@@ -94,6 +97,19 @@ window.BiumScanSession = (() => {
       const json = await res.json();
       const mapped = window.BiumScanMap.fromCzkawkaJson(json);
       window.BiumScanMap.applyToData(mapped);
+      try {
+        const [photos, docs] = await Promise.all([
+          fetch("fixtures/similar-photos.sample.json").then((r) => r.json()),
+          fetch("fixtures/similar-docs.sample.json").then((r) => r.json()),
+        ]);
+        window.BiumApp?.applyCandidates?.({
+          exact: { groups: [] },
+          similarPhotos: { groups: photos.groups || [] },
+          similarDocs: { groups: docs.groups || [] },
+        });
+      } catch {
+        /* ignore */
+      }
       onProgress({
         phase: "found",
         room: "cloud",

@@ -296,6 +296,9 @@ async function runDesktopPetScan(options = {}) {
     groups: out?.scan?.groups,
     spaces: out?.scan?.spaces,
     mailCleanup: out?.scan?.mailCleanup || indexStore.getMailCleanup(),
+    candidates: out?.scan?.candidates || out?.scan?.result?.candidates,
+    similarPhotos: out?.scan?.similarPhotos,
+    similarDocs: out?.scan?.similarDocs,
     result: out?.scan?.result,
     desktopPet: isDesktopPetEnabled(),
   };

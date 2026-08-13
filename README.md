@@ -2,7 +2,7 @@
 
 > 메뉴바에서 여는 **작은 디지털 집**.  
 > 바탕화면 펫이 Mac · Windows · Drive · Gmail을 돌아다니며  
-> **중복 파일**과 **정리할 메일**을 찾아 추천합니다.
+> **완전 동일 · 비슷한 사진 · 재확인 문서**와 정리할 메일을 묶어 추천합니다.
 
 macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
 
@@ -18,7 +18,7 @@ macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
 ![Mini — Cozy Home](docs/screenshots/01-mini-cozy.png)
 
 - **정리 후보** — 지금 비울 수 있을 법한 용량 요약  
-- **새로 발견** — 클릭하면 중복 파일 목록으로 바로 이동  
+- **새로 발견** — 클릭하면 3등급 허브(완전 동일 / 비슷한 사진 / 재확인 문서)  
 - **연결된 기기** — MacBook / Windows / Drive 등 연결 상태  
 - **탐색 시작** — 바탕화면 펫이 공간을 돌아다니며 스캔
 
@@ -47,16 +47,19 @@ macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
 
 ---
 
-### 4) 새로 발견 → 중복 파일
+### 4) 새로 발견 → 3등급 재정리
 
-**새로 발견 N건** 또는 **발견한 항목 보기**를 누르면  
-이름은 달라도 **내용이 같은 파일**을 기기별로 보여 줍니다.
+**새로 발견 N건**을 누르면 신뢰도별로 나뉩니다.
 
 ![발견한 항목 — 중복 파일](docs/screenshots/04-findings-duplicates.png)
 
-- 파일명 · 위치(기기/경로) · 용량  
-- 하나만 남기면 확보 가능한 용량 안내  
-- Gmail 연결 시 **스팸함 / 오래된 안 읽은 메일** 정리도 함께 추천
+| 등급 | 의미 | 사용자 선택 |
+|------|------|-------------|
+| **확실함** | 해시가 같은 완전 동일 | 로컬 Desktop에 하나만 남기기 |
+| **높은 유사도** | 비슷한 사진 스택 | 1장 / 3장 / 모두 보기 |
+| **재확인** | 유사 문서·버전 파일명 | 비교 / 모으기 / 그대로 두기 |
+
+파이프라인·장기 스택: [`docs/SIMILARITY_PIPELINE.md`](docs/SIMILARITY_PIPELINE.md)
 
 ---
 
@@ -67,9 +70,10 @@ macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤
       ↓
 탐색 시작 → 바탕화면 펫이 Mac → Desktop → Drive → Mail 순회
       ↓
-중복·메일 정리 후보 수집 (메타데이터·해시만, 파일 본문 미전송)
+완전 동일 · 비슷한 사진 · 재확인 문서 · 메일 후보 수집
+(메타데이터·해시 중심, 파일 본문 미전송)
       ↓
-새로 발견 / 발견한 항목 → 사용자가 남길 위치 결정
+새로 발견 → 3등급 허브에서 사용자가 결정
 ```
 
 ---
@@ -121,6 +125,9 @@ npx --yes serve -l 5173 .
 | 프로젝트 | 라이선스 | BIUM에서의 역할 |
 |----------|----------|-----------------|
 | [Czkawka](https://github.com/qarmin/czkawka) | MIT | 중복 탐색 CLI (`vendor/bin/czkawka_cli`) · size → hash 그룹 아이디어 |
+| [imagededup](https://github.com/idealo/imagededup) | Apache-2.0 | 사진 near-duplicate 훅 자리 (해커톤은 fixture) |
+| [Apache Tika](https://tika.apache.org/) | Apache-2.0 | 문서 텍스트 추출 훅 자리 (해커톤은 파일명 휴리스틱) |
+| [Sentence Transformers](https://www.sbert.net/) | Apache-2.0 | 문서 임베딩 유사도 훅 자리 |
 | [LocalSend](https://github.com/localsend/localsend) / [protocol](https://github.com/localsend/protocol) | MIT | LAN 기기 발견 아이디어만 (파일 전송 API 미사용) → `electron/peers/lanPeer.js` |
 | [WindowPet](https://github.com/SeakMengs/WindowPet) | MIT | 투명·always-on-top·작은 창 이동 패턴 → `electron/desktopPet.js` |
 | [OpenPet](https://github.com/X-T-E-R/OpenPet) | — | Agent 이벤트 → 펫 행동 매핑 → `electron/agentEvents.js` |
@@ -163,6 +170,7 @@ npx --yes serve -l 5173 .
 ├── docs/
 │   ├── screenshots/          # README 캡처
 │   ├── OSS_COMPOSITION.md
+│   ├── SIMILARITY_PIPELINE.md # 3등급 유사도 파이프라인
 │   └── 피피티_개요.md         # 발표용 내러티브
 ├── digital-diet/             # 초기 실험 코드
 └── README.md                 # ← 지금 문서

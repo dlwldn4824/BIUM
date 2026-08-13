@@ -1,0 +1,29 @@
+{
+  "groups": [
+    {
+      "id": "photo-stack-jeju",
+      "kind": "similar-photo",
+      "confidence": "high",
+      "title": "비슷한 사진 8장",
+      "reason": "같은 장소에서 비슷한 구도로 촬영된 사진이에요.",
+      "count": 8,
+      "reclaimBytes": 44040192,
+      "keepOptions": [1, 3, "all"],
+      "pickHint": {
+        "sharpest": "IMG_3324.jpg",
+        "eyesOpen": true,
+        "highestRes": "IMG_3324.jpg"
+      },
+      "files": [
+        { "name": "IMG_3317.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.2MB", "sizeBytes": 5452595 },
+        { "name": "IMG_3318.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.4MB", "sizeBytes": 5662310 },
+        { "name": "IMG_3319.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.1MB", "sizeBytes": 5347737 },
+        { "name": "IMG_3320.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.6MB", "sizeBytes": 5872025 },
+        { "name": "IMG_3321.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.3MB", "sizeBytes": 5557452 },
+        { "name": "IMG_3322.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.0MB", "sizeBytes": 5242880 },
+        { "name": "IMG_3323.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.5MB", "sizeBytes": 5767168 },
+        { "name": "IMG_3324.jpg", "place": "MacBook / Pictures/Jeju", "size": "5.9MB", "sizeBytes": 6186598 }
+      ]
+    }
+  ]
+}

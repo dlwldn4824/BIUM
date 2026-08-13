@@ -27,13 +27,71 @@ window.DigitalHomeData = {
     { id: "onedrive", name: "OneDrive", used: null, total: null, icon: "cloud", connected: false },
   ],
   finds: [
-    { id: "duplicate", label: "중복 파일", icon: "⧉", gb: 18.7, count: 342 },
-    { id: "old", label: "오래된 파일", icon: "◷", gb: 12.4, count: 851 },
-    { id: "large", label: "대용량 방치 파일", icon: "▣", gb: 10.2, count: 56 },
+    { id: "duplicate", label: "완전 동일", icon: "⧉", gb: 0.8, count: 3 },
+    { id: "similar-photos", label: "비슷한 사진", icon: "🖼", gb: 0.04, count: 8 },
+    { id: "similar-docs", label: "비슷한 문서 (재확인)", icon: "📄", gb: 0, count: 4 },
     { id: "mail", label: "스팸·오래된 안읽음", icon: "✉", gb: 2.8, count: 1630 },
   ],
   /** Populated when Gmail is connected */
   mailCleanup: null,
+  /** 3-tier similarity candidates (exact synced with duplicate) */
+  candidates: {
+    exact: { groups: [] },
+    similarPhotos: {
+      groups: [
+        {
+          id: "photo-stack-jeju",
+          kind: "similar-photo",
+          confidence: "high",
+          title: "비슷한 사진 8장",
+          reason: "같은 장소에서 비슷한 구도로 촬영된 사진이에요.",
+          count: 8,
+          reclaimBytes: 44040192,
+          keepOptions: [1, 3, "all"],
+          pickHint: {
+            sharpest: "IMG_3324.jpg",
+            eyesOpen: true,
+            highestRes: "IMG_3324.jpg",
+          },
+          explain:
+            "같은 장소에서 연속 촬영된 사진 8장으로 보여요. 선명도·해상도 기준으로 IMG_3324.jpg를 남기면 약 42MB를 확보할 수 있어요.",
+          files: [
+            { name: "IMG_3317.jpg", place: "MacBook / Pictures/Jeju", size: "5.2MB" },
+            { name: "IMG_3318.jpg", place: "MacBook / Pictures/Jeju", size: "5.4MB" },
+            { name: "IMG_3319.jpg", place: "MacBook / Pictures/Jeju", size: "5.1MB" },
+            { name: "IMG_3320.jpg", place: "MacBook / Pictures/Jeju", size: "5.6MB" },
+            { name: "IMG_3321.jpg", place: "MacBook / Pictures/Jeju", size: "5.3MB" },
+            { name: "IMG_3322.jpg", place: "MacBook / Pictures/Jeju", size: "5.0MB" },
+            { name: "IMG_3323.jpg", place: "MacBook / Pictures/Jeju", size: "5.5MB" },
+            { name: "IMG_3324.jpg", place: "MacBook / Pictures/Jeju", size: "5.9MB" },
+          ],
+        },
+      ],
+    },
+    similarDocs: {
+      groups: [
+        {
+          id: "doc-chic-deck",
+          kind: "similar-doc",
+          confidence: "review",
+          title: "비슷한 발표 자료 4개",
+          reason: "완전히 같은 파일은 아니에요. 버전 파일일 가능성이 높아요.",
+          similarity: 0.91,
+          count: 4,
+          reclaimBytes: 0,
+          actions: ["compare", "gather", "keep"],
+          explain:
+            "이 4개 파일은 같은 프로젝트의 여러 버전으로 보입니다(유사도 약 91%). 가장 최근으로 보이는 파일은 CHIC_발표_진짜최종.pptx예요. 완전히 같다고 단정하지 말고 비교해 보세요.",
+          files: [
+            { name: "CHIC_발표.pptx", place: "MacBook / Documents", size: "12MB", modified: "2026-07-02" },
+            { name: "CHIC_발표_최종.pptx", place: "MacBook / Documents", size: "13MB", modified: "2026-07-18" },
+            { name: "CHIC_발표_진짜최종.pptx", place: "Desktop / Documents", size: "14MB", modified: "2026-08-01" },
+            { name: "CHIC_발표_수정본.pptx", place: "Google Drive / 학교", size: "13MB", modified: "2026-07-22" },
+          ],
+        },
+      ],
+    },
+  },
   agent: {
     line: "지금은 쉬고 있어요",
     sub: "바탕화면 펫 · 대기 중",
@@ -56,7 +114,10 @@ window.DigitalHomeData = {
         size: "428MB",
         keepId: "desktop",
         keepLabel: "Desktop",
-        keepDesc: "최근 사용하지 않음",
+        keepDesc: "로컬 Desktop · 클라우드보다 환경에 유리",
+        recommended: true,
+        reason:
+          "Desktop에 남기면 Drive 복제를 줄여 탄소·구독 부담을 낮출 수 있어요.",
       },
       {
         name: "발표최종 (2).pdf",
@@ -64,9 +125,10 @@ window.DigitalHomeData = {
         size: "428MB",
         keepId: "gdrive",
         keepLabel: "Google Drive",
-        keepDesc: "클라우드 보관 · 모든 기기에서 접근 가능",
-        recommended: true,
-        reason: "여러 기기에서 접근할 수 있는 위치예요.",
+        keepDesc: "클라우드 보관 · 데이터센터 부하 지속",
+        recommended: false,
+        reason:
+          "Drive에 남기면 클라우드에 계속 쌓여요. 탄소 절감을 위해 로컬을 추천해요.",
       },
     ],
   },

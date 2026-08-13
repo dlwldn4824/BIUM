@@ -349,9 +349,9 @@
         `
         <div class="util-sheet">
           <h3 class="util-sheet-title">어디에 남길까요?</h3>
-          <p class="util-sheet-lead">${hero ? `${escapeHtml(hero.name)} · ${escapeHtml(hero.size || "")}` : "한 곳만 남깁니다"}</p>
+          <p class="util-sheet-lead">${hero ? `${escapeHtml(hero.name)} · ${escapeHtml(hero.size || "")}` : "한 곳만 남깁니다"}<br><small>탄소 절감을 위해 <strong>로컬 Desktop</strong>을 추천해요</small></p>
           <div class="util-options" id="keepOptions">${options}</div>
-          <p class="util-sheet-note" id="keepReason">위치를 고르면 나머지 사본을 정리할 수 있어요</p>
+          <p class="util-sheet-note" id="keepReason">Drive 대신 로컬에 남기면 클라우드 부하를 줄일 수 있어요</p>
           <div class="util-sheet-actions">
             <button class="util-sheet-close" data-action="confirm-keep" type="button">이 위치에 남기기</button>
             <button class="util-sheet-ghost" data-action="back-dup" type="button">뒤로</button>
@@ -380,9 +380,9 @@
 
     openModal(`
       <h3 class="dialog-title">어디에 남겨둘까요?</h3>
-      <p class="dialog-sub">${hero ? `${hero.name} · ${hero.size}` : "선택한 사본만 남깁니다."}<br>나머지는 정리 후보가 됩니다. 강아지/고양이는 발견만 해요.</p>
+      <p class="dialog-sub">${hero ? `${hero.name} · ${hero.size}` : "선택한 사본만 남깁니다."}<br>탄소 절감을 위해 <strong>로컬 Desktop</strong>을 추천해요. Drive 사본은 정리 후보예요.</p>
       <div class="keep-options">${options}</div>
-      <p class="modal-note" id="keepReason">위치를 고르면 나머지 사본을 정리할 수 있어요.</p>
+      <p class="modal-note" id="keepReason">Drive 대신 로컬에 남기면 클라우드 부하를 줄일 수 있어요.</p>
       <div class="modal-actions row">
         <button class="px-btn accent" data-action="confirm-keep" type="button">이 위치에 남기기</button>
         <button class="px-btn ghost" data-action="back-dup" type="button">뒤로</button>
@@ -472,6 +472,60 @@
     return `${Math.max(1, Math.round(n / 1024))}KB`;
   }
 
+  /** Order-of-magnitude estimates for hackathon demo (not measured CO₂). */
+  function estimateCleanupImpact(cleanableGb) {
+    const gb = Math.max(0, Number(cleanableGb) || 0);
+    // ~0.04 kgCO₂e / GB·year (public estimate order — see docs/README)
+    const carbonKg = gb * 0.04;
+    // Scale mock social/cloud burden from base 8.7GB → ₩36,000/yr
+    const savingKrw = Math.round((gb / 8.7) * (data.summary.savingKrw || 36000));
+    return {
+      gb,
+      carbonKg,
+      carbonLabel:
+        carbonKg >= 1
+          ? `${carbonKg.toFixed(1)} kgCO₂e`
+          : `${Math.round(carbonKg * 1000)} gCO₂e`,
+      savingKrw,
+      savingLabel: `${savingKrw.toLocaleString()}원`,
+    };
+  }
+
+  function openCleanableImpactModal() {
+    const impact = estimateCleanupImpact(data.summary.cleanableGb ?? 8.7);
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">정리하면</h3>
+        <p class="util-sheet-lead">
+          후보 <strong>${impact.gb}GB</strong>를 비웠을 때 기대할 수 있는 효과예요
+        </p>
+        <ul class="util-find-list">
+          <li class="util-find-row">
+            <div class="util-find-main">
+              <strong>예상 탄소 절감</strong>
+              <small>클라우드에 방치된 데이터를 줄일 때 · 연간 추정</small>
+            </div>
+            <span class="util-find-size">약 ${impact.carbonLabel}/년</span>
+          </li>
+          <li class="util-find-row">
+            <div class="util-find-main">
+              <strong>사회적 절감 비용</strong>
+              <small>구독·용량 부담을 완화할 수 있는 규모 · 연간 추정</small>
+            </div>
+            <span class="util-find-size">약 ${impact.savingLabel}/년</span>
+          </li>
+        </ul>
+        <p class="util-sheet-note">
+          탄소·비용은 <strong>공개 추정치의 오더</strong>예요. 개인별 실측값이 아닙니다.
+        </p>
+        <button class="util-sheet-close" data-action="close" type="button">확인</button>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
   function applyMailCleanup(cleanup) {
     if (!cleanup?.groups?.length) {
       data.mailCleanup = null;
@@ -537,23 +591,159 @@
     );
   }
 
+  function photoGroups() {
+    return data.candidates?.similarPhotos?.groups || [];
+  }
+
+  function docGroups() {
+    return data.candidates?.similarDocs?.groups || [];
+  }
+
+  function applyCandidates(candidates) {
+    if (!candidates || !data) return;
+    data.candidates = {
+      exact: candidates.exact || data.candidates?.exact || { groups: [] },
+      similarPhotos: candidates.similarPhotos || { groups: [] },
+      similarDocs: candidates.similarDocs || { groups: [] },
+    };
+    const photos = photoGroups();
+    const docs = docGroups();
+    const findPhoto = data.finds?.find((f) => f.id === "similar-photos");
+    if (findPhoto && photos[0]) {
+      findPhoto.count = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+      findPhoto.gb = +(
+        photos.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
+        1024 ** 3
+      ).toFixed(2);
+    }
+    const findDoc = data.finds?.find((f) => f.id === "similar-docs");
+    if (findDoc && docs[0]) {
+      findDoc.count = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    }
+    renderFinds();
+    window.BiumMini?.fillStats?.();
+  }
+
+  function openPhotoStackModal(groupId) {
+    const groups = photoGroups();
+    const group =
+      groups.find((g) => g.id === groupId) || groups[0] || null;
+    if (!group) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">비슷한 사진</h3>
+          <p class="util-sheet-note">아직 비슷한 사진 묶음이 없어요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+    const rows = (group.files || [])
+      .map(
+        (f) => `
+      <li class="util-find-row">
+        <div class="util-find-main">
+          <strong>${escapeHtml(f.name)}</strong>
+          <small>${escapeHtml(f.place || "")}</small>
+        </div>
+        <span class="util-find-size">${escapeHtml(f.size || "")}</span>
+      </li>`
+      )
+      .join("");
+    const hint = group.pickHint || {};
+    openModal(
+      `
+      <div class="util-sheet">
+        <p class="util-tier-badge util-tier-high">높은 유사도</p>
+        <h3 class="util-sheet-title">${escapeHtml(group.title || "비슷한 사진")}</h3>
+        <p class="util-sheet-lead">${escapeHtml(group.reason || "")}</p>
+        <ul class="util-find-list util-stack-list">${rows}</ul>
+        <p class="util-sheet-note">
+          선명도 최고 · ${escapeHtml(hint.sharpest || "—")}<br>
+          눈 감음 ${hint.eyesOpen === false ? "있음" : "없음"} · 해상도 가장 높음 · ${escapeHtml(hint.highestRes || hint.sharpest || "—")}
+        </p>
+        ${group.explain ? `<p class="util-sheet-note">${escapeHtml(group.explain)}</p>` : ""}
+        <p class="util-sheet-note">추천: <strong>1장 남기기</strong> · 확보 가능 <strong>+${formatReclaim(group.reclaimBytes)}</strong></p>
+        <div class="util-sheet-actions">
+          <button class="util-sheet-close" data-action="photo-keep" data-keep-n="1" type="button">1장 남기기</button>
+          <button class="util-sheet-ghost" data-action="photo-keep" data-keep-n="3" type="button">3장 남기기</button>
+          <button class="util-sheet-ghost" data-action="photo-keep" data-keep-n="all" type="button">모두 보기</button>
+          <button class="util-sheet-ghost" data-action="open-findings-hub" type="button">뒤로</button>
+        </div>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
+  function openDocReviewModal(groupId) {
+    const groups = docGroups();
+    const group =
+      groups.find((g) => g.id === groupId) || groups[0] || null;
+    if (!group) {
+      openModal(
+        `
+        <div class="util-sheet">
+          <h3 class="util-sheet-title">비슷한 문서</h3>
+          <p class="util-sheet-note">아직 재확인 후보가 없어요.</p>
+          <button class="util-sheet-close" data-action="close" type="button">확인</button>
+        </div>
+      `,
+        { util: true }
+      );
+      return;
+    }
+    const pct = Math.round((group.similarity || 0) * 100);
+    const rows = (group.files || [])
+      .map(
+        (f) => `
+      <li class="util-find-row">
+        <div class="util-find-main">
+          <strong>${escapeHtml(f.name)}</strong>
+          <small>${escapeHtml(f.place || "")}${f.modified ? ` · ${escapeHtml(f.modified)}` : ""}</small>
+        </div>
+        <span class="util-find-size">${escapeHtml(f.size || "")}</span>
+      </li>`
+      )
+      .join("");
+    openModal(
+      `
+      <div class="util-sheet">
+        <p class="util-tier-badge util-tier-review">재확인 필요</p>
+        <h3 class="util-sheet-title">${escapeHtml(group.title || "비슷한 문서")}</h3>
+        <p class="util-sheet-lead">내용 유사도: <strong>${pct}%</strong></p>
+        <ul class="util-find-list">${rows}</ul>
+        <p class="util-sheet-note">${escapeHtml(group.reason || "완전히 같은 파일은 아니에요. 버전 파일일 가능성이 높아요.")}</p>
+        ${group.explain ? `<p class="util-sheet-note">${escapeHtml(group.explain)}</p>` : ""}
+        <div class="util-sheet-actions">
+          <button class="util-sheet-close" data-action="doc-compare" type="button">내용 비교</button>
+          <button class="util-sheet-ghost" data-action="doc-gather" type="button">한 폴더에 모으기</button>
+          <button class="util-sheet-ghost" data-action="close" type="button">그대로 두기</button>
+          <button class="util-sheet-ghost" data-action="open-findings-hub" type="button">뒤로</button>
+        </div>
+      </div>
+    `,
+      { util: true }
+    );
+  }
+
   function openFindingsHub() {
     const hasDup = (data.duplicate?.files?.length || 0) >= 2;
+    const photos = photoGroups();
+    const docs = docGroups();
+    const hasPhotos = photos.length > 0;
+    const hasDocs = docs.length > 0;
     const hasMail = !!(data.mailCleanup?.groups?.length);
-    if (hasMail && !hasDup) {
-      openMailCleanupModal();
-      return;
-    }
-    if (hasDup && !hasMail) {
-      openDuplicateModal();
-      return;
-    }
-    if (!hasDup && !hasMail) {
+
+    if (!hasDup && !hasPhotos && !hasDocs && !hasMail) {
       openModal(
         `
         <div class="util-sheet">
           <h3 class="util-sheet-title">발견한 항목</h3>
-          <p class="util-sheet-note">아직 가져온 발견이 없어요. 탐색을 시작하거나 Gmail을 연결해 보세요.</p>
+          <p class="util-sheet-note">아직 가져온 발견이 없어요. 탐색을 시작해 보세요.</p>
           <button class="util-sheet-close" data-action="close" type="button">확인</button>
         </div>
       `,
@@ -562,31 +752,68 @@
       return;
     }
 
-    const dupN = data.duplicate.files.length;
-    const mailN = data.mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0);
-    openModal(
-      `
-      <div class="util-sheet">
-        <h3 class="util-sheet-title">발견한 항목</h3>
-        <p class="util-sheet-lead">정리할 수 있는 항목이 있어요</p>
-        <div class="util-options">
+    const dupN = hasDup ? data.duplicate.files.length : 0;
+    const photoN = photos.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    const docN = docs.reduce((s, g) => s + (g.count || g.files?.length || 0), 0);
+    const mailN = hasMail
+      ? data.mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0)
+      : 0;
+
+    const options = [
+      hasDup
+        ? `
           <button class="util-option" type="button" data-action="open-dup-find">
             <span class="util-option-ico" aria-hidden="true">⧉</span>
             <span class="util-option-text">
-              <strong>중복 파일</strong>
+              <strong>확실함 · 완전 동일</strong>
               <small>내용이 같은 파일 ${dupN}개</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
-          </button>
-          <button class="util-option is-on" type="button" data-action="open-mail-find">
+          </button>`
+        : "",
+      hasPhotos
+        ? `
+          <button class="util-option is-on" type="button" data-action="open-photo-find">
+            <span class="util-option-ico" aria-hidden="true">🖼</span>
+            <span class="util-option-text">
+              <strong>높은 유사도 · 비슷한 사진</strong>
+              <small>${photoN}장을 스택으로 묶었어요</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>`
+        : "",
+      hasDocs
+        ? `
+          <button class="util-option" type="button" data-action="open-doc-find">
+            <span class="util-option-ico" aria-hidden="true">📄</span>
+            <span class="util-option-text">
+              <strong>재확인 · 비슷한 문서</strong>
+              <small>버전 후보 ${docN}개 · 바로 지우지 않아요</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>`
+        : "",
+      hasMail
+        ? `
+          <button class="util-option" type="button" data-action="open-mail-find">
             <span class="util-option-ico" aria-hidden="true">✉</span>
             <span class="util-option-text">
               <strong>메일 정리 · 추천</strong>
               <small>스팸·오래된 안읽음 ${mailN.toLocaleString()}통</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
-          </button>
-        </div>
+          </button>`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("");
+
+    openModal(
+      `
+      <div class="util-sheet">
+        <h3 class="util-sheet-title">발견한 항목</h3>
+        <p class="util-sheet-lead">확실함 → 높은 유사도 → 재확인 순으로 정리해요</p>
+        <div class="util-options">${options}</div>
         <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
       </div>
     `,
@@ -597,6 +824,18 @@
   function openSimpleFind(kind) {
     if (kind === "mail") {
       openMailCleanupModal();
+      return;
+    }
+    if (kind === "similar-photos" || kind === "photos") {
+      openPhotoStackModal();
+      return;
+    }
+    if (kind === "similar-docs" || kind === "docs") {
+      openDocReviewModal();
+      return;
+    }
+    if (kind === "duplicate") {
+      openDuplicateModal();
       return;
     }
     const map = {
@@ -748,13 +987,49 @@
       openDuplicateModal();
       return;
     }
+    if (action === "open-photo-find") {
+      openPhotoStackModal();
+      return;
+    }
+    if (action === "open-doc-find") {
+      openDocReviewModal();
+      return;
+    }
+    if (action === "open-findings-hub") {
+      openFindingsHub();
+      return;
+    }
+    if (action === "photo-keep") {
+      const n = e.target.closest("[data-action]")?.dataset.keepN || "1";
+      if (n === "all") {
+        window.BiumMini?.setAgent?.("🐾 사진 스택을 모두 남겨둘게요");
+      } else {
+        window.BiumMini?.setAgent?.(
+          `🐾 비슷한 사진 중 ${n}장만 남기도록 추천했어요`
+        );
+      }
+      closeModal();
+      resumeHomeChrome();
+      return;
+    }
+    if (action === "doc-compare") {
+      window.BiumMini?.setAgent?.(
+        "🐾 완전히 같다고 단정하지 않고 비교만 추천해요"
+      );
+      closeModal();
+      resumeHomeChrome();
+      return;
+    }
+    if (action === "doc-gather") {
+      window.BiumMini?.setAgent?.("🐾 버전 후보를 한곳에 모아두라고 표시했어요");
+      closeModal();
+      resumeHomeChrome();
+      return;
+    }
     if (action === "open-mail-find" || action === "mail-clean-ack") {
       if (action === "mail-clean-ack") {
         window.BiumMini?.setAgent?.("🐾 메일 정리 추천을 확인했어요");
-        window.BiumMini?.setFoundCount?.(
-          (data.duplicate?.files?.length || 0) +
-            (data.mailCleanup?.groups?.length || 0)
-        );
+        window.BiumMini?.refreshFindCount?.();
       }
       if (action === "open-mail-find") {
         openMailCleanupModal();
@@ -1069,9 +1344,15 @@
     applyMailCleanup,
     openMailCleanupModal,
     openFindingsHub,
+    applyCandidates,
+    openPhotoStackModal,
+    openDocReviewModal,
     openDuplicatesFromMini: () => {
       // Keep Mini open — show which files are duplicates
       openDuplicateModal();
+    },
+    openCleanableImpactFromMini: () => {
+      openCleanableImpactModal();
     },
     openDuplicateFromMini: () => {
       // Keep Mini open — modal overlays the popover (no rescan)

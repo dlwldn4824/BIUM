@@ -66,26 +66,33 @@ window.BiumMini = (() => {
     else pet.setState(name);
   }
 
+  function discoveryGroupCount() {
+    const data = window.DigitalHomeData;
+    let n = 0;
+    if ((data?.duplicate?.files?.length || 0) >= 2) n += 1;
+    n += data?.candidates?.similarPhotos?.groups?.length || 0;
+    n += data?.candidates?.similarDocs?.groups?.length || 0;
+    if (data?.mailCleanup?.groups?.length) n += 1;
+    return n;
+  }
+
   function fillMetrics() {
     const data = window.DigitalHomeData;
     const clean = data?.summary?.cleanableGb ?? 8.7;
     if ($("miniCleanable")) $("miniCleanable").textContent = `${fmtGb(clean)}GB`;
+    refreshFindCount();
+  }
 
-    const dupFiles = data?.duplicate?.files?.length || 0;
-    if (dupFiles >= 2) foundCount = Math.max(foundCount, dupFiles);
-    const n = Math.max(
-      foundCount,
-      Number($("miniNewFinds")?.dataset.count || 0),
-      dupFiles >= 2 ? dupFiles : 0
-    );
-    setFoundCount(n);
-
+  function syncFindsButton(has) {
     const btn = $("btnMiniNewFinds");
-    if (btn) {
-      const has = n > 0 || dupFiles >= 2;
-      btn.disabled = !has;
-      btn.setAttribute("aria-disabled", has ? "false" : "true");
-    }
+    if (!btn) return;
+    const on = !!has;
+    btn.disabled = !on;
+    btn.setAttribute("aria-disabled", on ? "false" : "true");
+    btn.classList.toggle("is-live", on);
+    btn.title = on
+      ? "눌러서 완전 동일·비슷한 사진·문서 보기"
+      : "아직 발견한 항목이 없어요";
   }
 
   function setFoundCount(n) {
@@ -95,6 +102,13 @@ window.BiumMini = (() => {
       el.dataset.count = String(foundCount);
       el.textContent = `${foundCount}건`;
     }
+    syncFindsButton(foundCount > 0);
+  }
+
+  function refreshFindCount() {
+    const n = Math.max(foundCount, discoveryGroupCount());
+    setFoundCount(n);
+    return n;
   }
 
   function applyLocation(snap) {
@@ -295,17 +309,26 @@ window.BiumMini = (() => {
 
     const files = res?.primary?.files?.length || 0;
     const summoned = !!res?.summoned;
-    if (files >= 2 && !summoned) {
-      setFoundCount(files);
-      setStatus(`🐾 같은 파일 ${files}개를 찾았어!`);
-      applyAnim("found");
-      window.biumDesktop?.setTrayBadge?.(files);
-    } else if (!summoned) {
-      setFoundCount(0);
-      setStatus("🐾 지금은 깨끗한 편이에요");
-      applyAnim("sleep");
-      window.biumDesktop?.setTrayBadge?.(0);
-      if ($("btnMiniScan")) $("btnMiniScan").hidden = false;
+    const candidates =
+      res?.candidates || res?.result?.candidates || null;
+    if (candidates) window.BiumApp?.applyCandidates?.(candidates);
+    if (!summoned) {
+      const groups = refreshFindCount();
+      if (groups > 0 || files >= 2) {
+        if (files >= 2) {
+          setStatus(`🐾 같은 파일 ${files}개 · 비슷한 묶음도 챙겼어!`);
+        } else {
+          setStatus("🐾 비슷한 사진·문서 묶음을 찾았어!");
+        }
+        applyAnim("found");
+        window.biumDesktop?.setTrayBadge?.(Math.max(files, groups));
+      } else {
+        setFoundCount(0);
+        setStatus("🐾 지금은 깨끗한 편이에요");
+        applyAnim("sleep");
+        window.biumDesktop?.setTrayBadge?.(0);
+        if ($("btnMiniScan")) $("btnMiniScan").hidden = false;
+      }
     }
     fillStats();
   }
@@ -331,11 +354,7 @@ window.BiumMini = (() => {
   }
 
   function openFindings() {
-    const hasDup =
-      foundCount > 0 ||
-      (window.DigitalHomeData?.duplicate?.files?.length || 0) >= 2;
-    const hasMail = !!(window.DigitalHomeData?.mailCleanup?.groups?.length);
-    if (!hasDup && !hasMail) {
+    if (refreshFindCount() <= 0) {
       setStatus("🐾 아직 가져온 발견이 없어요");
       return;
     }
@@ -343,18 +362,18 @@ window.BiumMini = (() => {
     else window.BiumApp?.openDuplicateFromMini?.();
   }
 
-  /** "새로 발견 N건" → duplicate file list */
+  /** "새로 발견 N건" → 3-tier findings hub */
   function openNewFinds() {
-    const files = window.DigitalHomeData?.duplicate?.files || [];
-    if (files.length < 2 && foundCount <= 0) {
-      setStatus("🐾 아직 가져온 발견이 없어요");
+    openFindings();
+  }
+
+  /** "정리 후보" → carbon + social cost estimates */
+  function openCleanableImpact() {
+    if (window.BiumApp?.openCleanableImpactFromMini) {
+      window.BiumApp.openCleanableImpactFromMini();
       return;
     }
-    if (window.BiumApp?.openDuplicatesFromMini) {
-      window.BiumApp.openDuplicatesFromMini();
-      return;
-    }
-    window.BiumApp?.openDuplicateFromMini?.();
+    setStatus("🐾 정리하면 탄소·비용 부담을 줄일 수 있어요");
   }
 
   async function remountPet() {
@@ -414,6 +433,7 @@ window.BiumMini = (() => {
     $("btnMiniSummon")?.addEventListener("click", () => summonHere());
     $("btnFindOpen")?.addEventListener("click", () => openFindings());
     $("btnMiniNewFinds")?.addEventListener("click", () => openNewFinds());
+    $("btnMiniCleanable")?.addEventListener("click", () => openCleanableImpact());
     $("btnConnectSpace")?.addEventListener("click", () => openAddDeviceSheet());
     $("btnMiniSettings")?.addEventListener("click", () => {
       window.BiumApp?.openDisplaySettings?.();
@@ -484,6 +504,7 @@ window.BiumMini = (() => {
     start,
     stop,
     setFoundCount,
+    refreshFindCount,
     fillStats,
     remountPet,
     startLiveScan,
