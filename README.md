@@ -84,6 +84,67 @@ flowchart LR
 
 메타데이터·해시 중심 · 파일 본문은 BIUM 서버로 전송하지 않습니다.
 
+### 4단계 파이프라인 한눈에 보기
+
+```mermaid
+flowchart LR
+  subgraph STEP1["1 · 유사 사진"]
+    direction TB
+    P1["Czkawka image"]
+    P2["Gradient perceptual hash"]
+    P3["Pictures · Desktop<br/>이미지 디코드"]
+    P4["max difference · 8"]
+    P1 --> P2 --> P3 --> P4
+  end
+
+  subgraph STEP2["2 · 유사 문서"]
+    direction TB
+    D1["Filename heuristic"]
+    D2["final · 최종 · vN 제거"]
+    D3["파일명 stem<br/>빠른 후보 생성"]
+    D4["confidence · Review"]
+    D1 --> D2 --> D3 --> D4
+  end
+
+  subgraph STEP3["3 · Exact 확정"]
+    direction TB
+    E1["Size bucket → BLAKE3"]
+    E2["Node SHA-256 fallback"]
+    E3["512KB 이상<br/>약 28초 예산"]
+    E4["time budget · ~28s"]
+    E1 --> E2 --> E3 --> E4
+  end
+
+  subgraph STEP4["4 · 후보 생성"]
+    direction TB
+    C1["Similar photos"]
+    C2["Similar docs · Exact"]
+    C3["신뢰도별 Findings Hub"]
+    C4["final control · User"]
+    C1 --> C2 --> C3 --> C4
+  end
+
+  P4 ==> D1
+  D4 ==> E1
+  E4 ==> C1
+
+  classDef photo fill:#f9e8d6,stroke:#e7883a,color:#71421e
+  classDef docs fill:#f7f0d9,stroke:#d5a331,color:#6e5719
+  classDef exact fill:#dcefe8,stroke:#168c73,color:#0d604e
+  classDef result fill:#e4ebf7,stroke:#4f72ae,color:#29466f
+  class P1,P2,P3,P4 photo
+  class D1,D2,D3,D4 docs
+  class E1,E2,E3,E4 exact
+  class C1,C2,C3,C4 result
+
+  style STEP1 fill:#fffaf4,stroke:#e7883a,stroke-width:2px
+  style STEP2 fill:#fffdf4,stroke:#d5a331,stroke-width:2px
+  style STEP3 fill:#f5fbf8,stroke:#168c73,stroke-width:2px
+  style STEP4 fill:#f6f8fc,stroke:#4f72ae,stroke-width:2px
+```
+
+발표용 화면: [`docs/pipeline-slides.html`](docs/pipeline-slides.html)
+
 ### 전체 기술 파이프라인 — 로컬 엔진 · 오픈소스 · 클라우드
 
 > 현재 런타임에는 별도 생성형 AI/임베딩 모델이 없습니다.

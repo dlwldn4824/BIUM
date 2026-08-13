@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BIUM Pipeline — 3 Slides</title>
+    <style>
+      :root {
+        --paper: #f7f2e9;
+        --paper-deep: #eee4d5;
+        --ink: #25312d;
+        --muted: #68736f;
+        --green: #168c73;
+        --green-soft: #dcefe8;
+        --orange: #e7883a;
+        --orange-soft: #f9e8d6;
+        --blue: #4f72ae;
+        --blue-soft: #e4ebf7;
+        --line: rgba(37, 49, 45, 0.14);
+        --white: rgba(255, 255, 255, 0.82);
+        --shadow: 0 24px 70px rgba(57, 48, 36, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #ddd5c9;
+        color: var(--ink);
+        font-family:
+          Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui,
+          sans-serif;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .deck {
+        position: relative;
+        width: min(100vw, 177.7778vh);
+        height: min(100vh, 56.25vw);
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+      }
+
+      .slides {
+        width: 100%;
+        height: 100%;
+      }
+
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 2.4%;
+        padding: 5.2% 6% 3.4%;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(4%);
+        transition:
+          opacity 320ms ease,
+          transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          visibility 320ms;
+      }
+
+      .slide.is-active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(0);
+      }
+
+      .slide::before {
+        content: "";
+        position: absolute;
+        width: 36%;
+        aspect-ratio: 1;
+        right: -13%;
+        top: -21%;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff 0 28%, transparent 70%);
+        opacity: 0.85;
+        pointer-events: none;
+      }
+
+      .slide::after {
+        content: "";
+        position: absolute;
+        width: 26%;
+        height: 8px;
+        left: 6%;
+        top: 0;
+        border-radius: 0 0 20px 20px;
+        background: var(--accent, var(--green));
+      }
+
+      .slide-head,
+      .slide-body,
+      .slide-foot {
+        position: relative;
+        z-index: 1;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1%;
+        color: var(--accent, var(--green));
+        font-size: clamp(10px, 1.05vw, 17px);
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 24px;
+        height: 3px;
+        border-radius: 99px;
+        background: currentColor;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 84%;
+        font-size: clamp(28px, 3.35vw, 58px);
+        line-height: 1.12;
+        letter-spacing: -0.05em;
+      }
+
+      .subtitle {
+        margin: 1.2% 0 0;
+        color: var(--muted);
+        font-size: clamp(12px, 1.18vw, 20px);
+        line-height: 1.55;
+      }
+
+      .slide-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 1%;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: clamp(9px, 0.85vw, 14px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink);
+        font-weight: 900;
+        letter-spacing: 0.03em;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        aspect-ratio: 1;
+        border-radius: 7px;
+        background: var(--ink);
+        color: var(--paper);
+        font-size: 12px;
+      }
+
+      .page-number {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Slide 1 */
+      .strategy-grid {
+        display: grid;
+        grid-template-columns: 1fr 0.18fr 1fr;
+        align-items: stretch;
+        gap: 2%;
+        height: 100%;
+      }
+
+      .compare-card {
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 5%;
+        padding: 6%;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--white);
+        box-shadow: 0 12px 36px rgba(61, 52, 42, 0.06);
+      }
+
+      .compare-card.similar {
+        border-color: rgba(231, 136, 58, 0.35);
+        background:
+          linear-gradient(145deg, rgba(255, 255, 255, 0.9), transparent),
+          var(--orange-soft);
+      }
+
+      .compare-card.exact {
+        border-color: rgba(22, 140, 115, 0.28);
+      }
+
+      .card-kicker {
+        color: var(--muted);
+        font-size: clamp(9px, 0.9vw, 15px);
+        font-weight: 800;
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: clamp(20px, 2.25vw, 38px);
+        letter-spacing: -0.04em;
+      }
+
+      .metric {
+        display: flex;
+        align-items: end;
+        gap: 10px;
+      }
+
+      .metric strong {
+        color: var(--card-color);
+        font-size: clamp(36px, 5.2vw, 86px);
+        line-height: 0.85;
+        letter-spacing: -0.08em;
+      }
+
+      .metric span {
+        padding-bottom: 4px;
+        color: var(--muted);
+        font-size: clamp(10px, 1vw, 17px);
+        font-weight: 700;
+      }
+
+      .check-list {
+        display: grid;
+        align-content: center;
+        gap: 11%;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: clamp(10px, 1.05vw, 18px);
+        line-height: 1.45;
+      }
+
+      .check-list li {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 9px;
+        align-items: start;
+      }
+
+      .check-list li::before {
+        content: "";
+        width: 14px;
+        height: 14px;
+        margin-top: 2px;
+        border: 4px solid var(--card-color);
+        border-radius: 50%;
+        background: transparent;
+      }
+
+      .card-result {
+        padding: 3.2% 4%;
+        border-radius: 12px;
+        background: var(--card-color);
+        color: white;
+        font-size: clamp(9px, 0.9vw, 15px);
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .versus {
+        display: grid;
+        place-items: center;
+        color: #92877a;
+        font-size: clamp(14px, 1.5vw, 24px);
+        font-weight: 900;
+      }
+
+      .versus::before,
+      .versus::after {
+        content: "";
+        width: 1px;
+        height: 35%;
+        background: var(--line);
+      }
+
+      .priority-ribbon {
+        position: absolute;
+        right: 6%;
+        top: 6%;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 9px 14px;
+        border-radius: 999px;
+        background: var(--ink);
+        color: white;
+        font-size: clamp(9px, 0.82vw, 14px);
+        font-weight: 800;
+      }
+
+      /* Slide 2 */
+      .pipeline {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2.2%;
+        height: 100%;
+        padding-top: 2.5%;
+      }
+
+      .pipeline::before {
+        content: "";
+        position: absolute;
+        left: 7%;
+        right: 7%;
+        top: 16%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--orange), #d4a33f, var(--green));
+        opacity: 0.5;
+      }
+
+      .stage {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 6%;
+        padding: 9% 7% 7%;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.74);
+      }
+
+      .stage-number {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 42px;
+        aspect-ratio: 1;
+        margin-top: -22%;
+        border: 5px solid var(--paper);
+        border-radius: 50%;
+        background: var(--stage-color);
+        color: white;
+        font-size: clamp(13px, 1.2vw, 20px);
+        font-weight: 900;
+      }
+
+      .stage h2 {
+        margin: 0;
+        font-size: clamp(16px, 1.65vw, 28px);
+        letter-spacing: -0.04em;
+      }
+
+      .stage p {
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(9px, 0.88vw, 15px);
+        line-height: 1.5;
+      }
+
+      .tech-stack {
+        display: grid;
+        align-content: start;
+        gap: 8px;
+      }
+
+      .tech {
+        padding: 9px 10px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--stage-color) 12%, white);
+        color: color-mix(in srgb, var(--stage-color) 70%, #202020);
+        font-size: clamp(8px, 0.78vw, 13px);
+        font-weight: 800;
+      }
+
+      .stage-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 7%;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: clamp(8px, 0.74vw, 12px);
+      }
+
+      .stage-bottom strong {
+        color: var(--stage-color);
+      }
+
+      .local-banner {
+        position: absolute;
+        left: 50%;
+        bottom: 4.3%;
+        z-index: 2;
+        transform: translateX(-50%);
+        padding: 8px 18px;
+        border-radius: 999px;
+        background: var(--ink);
+        color: white;
+        font-size: clamp(8px, 0.8vw, 13px);
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      /* Slide 3 */
+      .network-layout {
+        display: grid;
+        grid-template-columns: 1fr 1.18fr 1fr;
+        gap: 3%;
+        align-items: center;
+        height: 100%;
+      }
+
+      .source-column,
+      .action-column {
+        display: grid;
+        gap: 4%;
+        align-content: center;
+        height: 92%;
+      }
+
+      .connection {
+        display: grid;
+        grid-template-columns: 38px 1fr auto;
+        gap: 11px;
+        align-items: center;
+        padding: 4.5%;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--white);
+      }
+
+      .connection.is-demo {
+        border-style: dashed;
+        opacity: 0.65;
+      }
+
+      .connection-icon {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        aspect-ratio: 1;
+        border-radius: 12px;
+        background: var(--connection-soft);
+        color: var(--connection-color);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .connection strong {
+        display: block;
+        font-size: clamp(10px, 1vw, 17px);
+      }
+
+      .connection small {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: clamp(7px, 0.68vw, 11px);
+        line-height: 1.35;
+      }
+
+      .status {
+        padding: 5px 7px;
+        border-radius: 7px;
+        background: var(--connection-soft);
+        color: var(--connection-color);
+        font-size: clamp(7px, 0.62vw, 10px);
+        font-weight: 900;
+      }
+
+      .index-core {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 86%;
+        aspect-ratio: 1;
+        margin: auto;
+        border: 1px solid rgba(22, 140, 115, 0.2);
+        border-radius: 50%;
+        background:
+          radial-gradient(circle, white 0 40%, transparent 41%),
+          repeating-radial-gradient(
+            circle,
+            transparent 0 18%,
+            rgba(22, 140, 115, 0.08) 19% 19.5%,
+            transparent 20% 31%
+          ),
+          var(--green-soft);
+      }
+
+      .index-core::before,
+      .index-core::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 22%;
+        height: 2px;
+        background: var(--green);
+        opacity: 0.45;
+      }
+
+      .index-core::before {
+        right: 100%;
+      }
+
+      .index-core::after {
+        left: 100%;
+      }
+
+      .core-label {
+        text-align: center;
+      }
+
+      .core-label span {
+        display: block;
+        color: var(--green);
+        font-size: clamp(8px, 0.78vw, 13px);
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .core-label strong {
+        display: block;
+        margin: 5px 0;
+        font-size: clamp(18px, 2.1vw, 36px);
+        letter-spacing: -0.06em;
+      }
+
+      .core-label small {
+        color: var(--muted);
+        font-size: clamp(8px, 0.72vw, 12px);
+      }
+
+      .privacy-note {
+        position: absolute;
+        left: 50%;
+        bottom: 7%;
+        width: 70%;
+        transform: translateX(-50%);
+        padding: 8px;
+        border-radius: 10px;
+        background: var(--ink);
+        color: white;
+        text-align: center;
+        font-size: clamp(7px, 0.68vw, 11px);
+        font-weight: 800;
+      }
+
+      .action {
+        position: relative;
+        padding: 5.5%;
+        border-left: 4px solid var(--action-color);
+        border-radius: 0 16px 16px 0;
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .action::before {
+        content: "";
+        position: absolute;
+        right: calc(100% + 4px);
+        top: 50%;
+        width: 12%;
+        height: 2px;
+        background: var(--action-color);
+        opacity: 0.35;
+      }
+
+      .action strong {
+        display: block;
+        font-size: clamp(10px, 1vw, 17px);
+      }
+
+      .action small {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: clamp(7px, 0.7vw, 12px);
+        line-height: 1.4;
+      }
+
+      /* Controls */
+      .controls {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transform: translateX(-50%);
+        padding: 8px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 999px;
+        background: rgba(37, 49, 45, 0.86);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(14px);
+      }
+
+      .nav-button {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        aspect-ratio: 1;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.12);
+        color: white;
+        cursor: pointer;
+      }
+
+      .nav-button:hover {
+        background: rgba(255, 255, 255, 0.22);
+      }
+
+      .nav-button:disabled {
+        cursor: default;
+        opacity: 0.3;
+      }
+
+      .dots {
+        display: flex;
+        gap: 7px;
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.38);
+        cursor: pointer;
+        transition: width 200ms ease;
+      }
+
+      .dot.is-active {
+        width: 24px;
+        background: white;
+      }
+
+      .keyboard-hint {
+        position: fixed;
+        right: 18px;
+        bottom: 20px;
+        color: rgba(37, 49, 45, 0.58);
+        font-size: 11px;
+      }
+
+      @media (max-aspect-ratio: 1/1) {
+        body {
+          align-items: start;
+          overflow: auto;
+        }
+
+        .deck {
+          margin-top: 10px;
+        }
+
+        .controls {
+          bottom: 8px;
+        }
+
+        .keyboard-hint {
+          display: none;
+        }
+      }
+
+      @media print {
+        @page {
+          size: 16in 9in;
+          margin: 0;
+        }
+
+        html,
+        body {
+          display: block;
+          overflow: visible;
+          background: white;
+        }
+
+        .deck,
+        .slides {
+          width: 16in;
+          height: auto;
+          aspect-ratio: auto;
+          overflow: visible;
+          box-shadow: none;
+        }
+
+        .slide {
+          position: relative;
+          display: grid;
+          width: 16in;
+          height: 9in;
+          page-break-after: always;
+          opacity: 1;
+          visibility: visible;
+          transform: none;
+        }
+
+        .controls,
+        .keyboard-hint {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck" aria-label="BIUM 파이프라인 발표 자료">
+      <div class="slides">
+        <section class="slide is-active" style="--accent: var(--orange)">
+          <header class="slide-head">
+            <div class="eyebrow">01 · Strategy</div>
+            <h1>모든 파일을<br />전수 해싱하지 않습니다</h1>
+            <p class="subtitle">
+              정리 효과가 큰 유사 파일을 먼저 찾고, Exact는 안전한 확정
+              단계로 사용합니다.
+            </p>
+            <div class="priority-ribbon">유사 우선 · Exact 확정</div>
+          </header>
+
+          <div class="slide-body strategy-grid">
+            <article
+              class="compare-card similar"
+              style="--card-color: var(--orange)"
+            >
+              <span class="card-kicker">FIRST · 발견 밀도</span>
+              <h2 class="card-title">유사 파일</h2>
+              <div class="metric">
+                <strong>先</strong>
+                <span>먼저 탐색</span>
+              </div>
+              <ul class="check-list">
+                <li>연속 촬영·리사이즈 사진 묶기</li>
+                <li>최종·수정·copy 문서 후보 찾기</li>
+                <li>사용자가 체감하는 정리량이 큼</li>
+              </ul>
+              <div class="card-result">낭비 회수 · 사용자 가치</div>
+            </article>
+
+            <div class="versus" aria-hidden="true">
+              <span>+</span>
+            </div>
+
+            <article
+              class="compare-card exact"
+              style="--card-color: var(--green)"
+            >
+              <span class="card-kicker">CONFIRM · 삭제 신뢰도</span>
+              <h2 class="card-title">완전 동일</h2>
+              <div class="metric">
+                <strong>後</strong>
+                <span>마지막 확정</span>
+              </div>
+              <ul class="check-list">
+                <li>크기가 다른 파일은 즉시 제외</li>
+                <li>같은 크기만 BLAKE3로 확인</li>
+                <li>바이트 동일이라 삭제 확신이 높음</li>
+              </ul>
+              <div class="card-result">안전 삭제 · 교차 기기 확인</div>
+            </article>
+          </div>
+
+          <footer class="slide-foot">
+            <span class="brand"
+              ><span class="brand-mark">B</span>BIUM · my home</span
+            >
+            <span class="page-number">01 / 03</span>
+          </footer>
+        </section>
+
+        <section class="slide" style="--accent: var(--green)">
+          <header class="slide-head">
+            <div class="eyebrow">02 · Local Pipeline</div>
+            <h1>오픈소스 엔진으로<br />로컬에서 먼저 찾습니다</h1>
+            <p class="subtitle">
+              생성형 AI가 아니라 Czkawka와 규칙 기반 로직이 탐지를
+              담당합니다.
+            </p>
+          </header>
+
+          <div class="slide-body pipeline">
+            <article class="stage" style="--stage-color: var(--orange)">
+              <span class="stage-number">1</span>
+              <h2>유사 사진</h2>
+              <div class="tech-stack">
+                <span class="tech">Czkawka image</span>
+                <span class="tech">Gradient perceptual hash</span>
+              </div>
+              <p>
+                Pictures·Desktop의 이미지를 디코드해 거의 같은 컷을
+                묶습니다.
+              </p>
+              <div class="stage-bottom">
+                <span>max difference</span><strong>8</strong>
+              </div>
+            </article>
+
+            <article class="stage" style="--stage-color: #d5a331">
+              <span class="stage-number">2</span>
+              <h2>유사 문서</h2>
+              <div class="tech-stack">
+                <span class="tech">Filename heuristic</span>
+                <span class="tech">final · 최종 · vN 제거</span>
+              </div>
+              <p>
+                문서 본문을 읽지 않고 파일명 stem으로 빠르게 후보를
+                만듭니다.
+              </p>
+              <div class="stage-bottom">
+                <span>confidence</span><strong>Review</strong>
+              </div>
+            </article>
+
+            <article class="stage" style="--stage-color: var(--green)">
+              <span class="stage-number">3</span>
+              <h2>Exact 확정</h2>
+              <div class="tech-stack">
+                <span class="tech">Size bucket → BLAKE3</span>
+                <span class="tech">Node SHA-256 fallback</span>
+              </div>
+              <p>
+                512KB 이상 파일만 짧은 시간 예산 안에서 완전 동일 여부를
+                확정합니다.
+              </p>
+              <div class="stage-bottom">
+                <span>time budget</span><strong>~28s</strong>
+              </div>
+            </article>
+
+            <article class="stage" style="--stage-color: var(--blue)">
+              <span class="stage-number">4</span>
+              <h2>후보 생성</h2>
+              <div class="tech-stack">
+                <span class="tech">Similar photos</span>
+                <span class="tech">Similar docs · Exact</span>
+              </div>
+              <p>
+                신뢰도에 따라 분리해 Findings Hub에서 사용자가 직접
+                판단합니다.
+              </p>
+              <div class="stage-bottom">
+                <span>final control</span><strong>User</strong>
+              </div>
+            </article>
+          </div>
+
+          <div class="local-banner">
+            파일 본문은 BIUM 서버로 전송하지 않음
+          </div>
+
+          <footer class="slide-foot">
+            <span class="brand"
+              ><span class="brand-mark">B</span>BIUM · my home</span
+            >
+            <span class="page-number">02 / 03</span>
+          </footer>
+        </section>
+
+        <section class="slide" style="--accent: var(--blue)">
+          <header class="slide-head">
+            <div class="eyebrow">03 · Federated Connection</div>
+            <h1>파일 대신 fingerprint만<br />하나의 집으로 연결합니다</h1>
+            <p class="subtitle">
+              실연결·읽기 전용·데모 경로를 구분하고, 삭제는 사용자 확인
+              뒤에만 실행합니다.
+            </p>
+          </header>
+
+          <div class="slide-body network-layout">
+            <div class="source-column">
+              <article
+                class="connection"
+                style="
+                  --connection-color: var(--green);
+                  --connection-soft: var(--green-soft);
+                "
+              >
+                <span class="connection-icon">MAC</span>
+                <div>
+                  <strong>Mac Local</strong>
+                  <small>경로 · 크기 · 해시 · 디스크 정보</small>
+                </div>
+                <span class="status">LOCAL</span>
+              </article>
+
+              <article
+                class="connection"
+                style="
+                  --connection-color: var(--orange);
+                  --connection-soft: var(--orange-soft);
+                "
+              >
+                <span class="connection-icon">LAN</span>
+                <div>
+                  <strong>LAN Peer</strong>
+                  <small>UDP 발견 · HTTP fingerprint API</small>
+                </div>
+                <span class="status">REAL</span>
+              </article>
+
+              <article
+                class="connection"
+                style="
+                  --connection-color: var(--blue);
+                  --connection-soft: var(--blue-soft);
+                "
+              >
+                <span class="connection-icon">G</span>
+                <div>
+                  <strong>Drive · Gmail</strong>
+                  <small>OAuth 2.0 PKCE · MD5 · readonly</small>
+                </div>
+                <span class="status">OAUTH</span>
+              </article>
+
+              <article
+                class="connection"
+                style="
+                  --connection-color: #43a454;
+                  --connection-soft: #e2f2e3;
+                "
+              >
+                <span class="connection-icon">N</span>
+                <div>
+                  <strong>Naver Mail</strong>
+                  <small>IMAP TLS 993 · 선택적 첨부 MD5</small>
+                </div>
+                <span class="status">IMAP</span>
+              </article>
+
+              <article
+                class="connection is-demo"
+                style="
+                  --connection-color: #7d827f;
+                  --connection-soft: #ebedec;
+                "
+              >
+                <span class="connection-icon">1D</span>
+                <div>
+                  <strong>OneDrive</strong>
+                  <small>현재 UI 자리만 존재 · 실 API 미구현</small>
+                </div>
+                <span class="status">STUB</span>
+              </article>
+            </div>
+
+            <div class="index-core">
+              <div class="core-label">
+                <span>Unified</span>
+                <strong>Fingerprint<br />Index</strong>
+                <small>contentKey로 교차 기기 그룹화</small>
+              </div>
+              <div class="privacy-note">파일 본문은 전송하지 않음</div>
+            </div>
+
+            <div class="action-column">
+              <article class="action" style="--action-color: var(--orange)">
+                <strong>비슷한 사진·문서 추천</strong>
+                <small>대표 사진과 최신 문서를 사용자가 직접 비교</small>
+              </article>
+
+              <article class="action" style="--action-color: var(--green)">
+                <strong>남길 위치 다중 선택</strong>
+                <small>Mac·Drive 중 보존할 사본을 명시적으로 선택</small>
+              </article>
+
+              <article class="action" style="--action-color: var(--ink)">
+                <strong>로컬 휴지통</strong>
+                <small>확정한 사본만 macOS ~/.Trash로 이동</small>
+              </article>
+
+              <article class="action" style="--action-color: var(--blue)">
+                <strong>Drive trash</strong>
+                <small>Drive API로 trashed=true 적용</small>
+              </article>
+
+              <article class="action" style="--action-color: #8a8f8c">
+                <strong>메일은 추천 전용</strong>
+                <small>Gmail·Naver 삭제는 자동 실행하지 않음</small>
+              </article>
+            </div>
+          </div>
+
+          <footer class="slide-foot">
+            <span class="brand"
+              ><span class="brand-mark">B</span>BIUM · my home</span
+            >
+            <span class="page-number">03 / 03</span>
+          </footer>
+        </section>
+      </div>
+    </main>
+
+    <nav class="controls" aria-label="슬라이드 이동">
+      <button class="nav-button" id="prev" aria-label="이전 슬라이드">
+        ←
+      </button>
+      <div class="dots" id="dots" aria-label="슬라이드 페이지"></div>
+      <button class="nav-button" id="next" aria-label="다음 슬라이드">
+        →
+      </button>
+    </nav>
+    <div class="keyboard-hint">← → 키로 이동 · P 키로 인쇄</div>
+
+    <script>
+      (() => {
+        const slides = [...document.querySelectorAll(".slide")];
+        const dotsRoot = document.getElementById("dots");
+        const prev = document.getElementById("prev");
+        const next = document.getElementById("next");
+        let index = 0;
+
+        const dots = slides.map((_, i) => {
+          const dot = document.createElement("button");
+          dot.className = "dot";
+          dot.type = "button";
+          dot.setAttribute("aria-label", `${i + 1}번 슬라이드`);
+          dot.addEventListener("click", () => show(i));
+          dotsRoot.appendChild(dot);
+          return dot;
+        });
+
+        function show(nextIndex) {
+          index = Math.max(0, Math.min(slides.length - 1, nextIndex));
+          slides.forEach((slide, i) =>
+            slide.classList.toggle("is-active", i === index),
+          );
+          dots.forEach((dot, i) =>
+            dot.classList.toggle("is-active", i === index),
+          );
+          prev.disabled = index === 0;
+          next.disabled = index === slides.length - 1;
+          history.replaceState(null, "", `#${index + 1}`);
+        }
+
+        prev.addEventListener("click", () => show(index - 1));
+        next.addEventListener("click", () => show(index + 1));
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "ArrowRight" || event.key === "PageDown") {
+            show(index + 1);
+          }
+          if (event.key === "ArrowLeft" || event.key === "PageUp") {
+            show(index - 1);
+          }
+          if (event.key.toLowerCase() === "p") window.print();
+          if (event.key === "Home") show(0);
+          if (event.key === "End") show(slides.length - 1);
+        });
+
+        const initial = Number(location.hash.slice(1)) - 1;
+        show(Number.isFinite(initial) ? initial : 0);
+      })();
+    </script>
+  </body>
+</html>
