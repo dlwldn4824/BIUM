@@ -18,17 +18,20 @@ BIUM은 “파일을 멋대로 지우는” 대신 **정리 가능한 묶음으�
 ## 해커톤 구현 (현재)
 
 ```text
-Czkawka / index     → exact duplicates
-fixture + hooks     → similar photos (imagededup 자리)
-filename heuristic  → similar docs (Tika/SBERT 자리)
-explainCandidate    → Claude stub 설명
-Mini Findings Hub   → 3등급 UI
+Czkawka / index       → exact duplicates
+Czkawka image         → similar photos
+Apache Tika 3.3.2     → PDF/PPT/DOC 본문 로컬 추출
+Multilingual MiniLM   → SBERT 임베딩 + cosine ≥ 0.80
+filename heuristic    → 추출·모델 실패 시 80% fallback
+explainCandidate      → 규칙 기반 설명
+Mini Findings Hub     → 3등급 UI
 ```
 
 코드:
 
 - `digital-home-prototype/electron/engines/similarPhotos.js`
 - `digital-home-prototype/electron/engines/similarDocs.js`
+- `digital-home-prototype/electron/engines/documentEmbeddings.js`
 - `digital-home-prototype/electron/engines/explainCandidate.js`
 - fixtures: `similar-photos.sample.json`, `similar-docs.sample.json`
 

@@ -383,14 +383,14 @@ async function runFederatedScan(options = {}) {
     }
   }
 
-  // ---- 2) Filename-similar docs (cheap, no content hash) ----
+  // ---- 2) Similar docs: Tika text → local SBERT, filename fallback ----
   let lightFiles = [];
   if (wantDocs || wantSimilarDemo) {
     emit(send, {
       phase: "search",
       agent: "mac-local",
       room: "laptop",
-      text: "비슷한 문서 이름 훑는 중…",
+      text: "문서 본문 의미를 비교하는 중… (Tika + SBERT)",
       progress: 26,
     });
     try {
@@ -402,6 +402,9 @@ async function runFederatedScan(options = {}) {
         entries: lightFiles,
         preferHeuristic: true,
         useFixture: wantSimilarDemo,
+        minSimilarity: options.docMinSimilarity ?? 0.8,
+        useEmbeddings: options.useDocEmbeddings !== false,
+        maxEmbeddingDocs: options.docEmbeddingLimit ?? 16,
       });
       emit(send, {
         phase: "search",

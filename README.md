@@ -18,6 +18,9 @@ GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 현재 배포본은 코드 서명 전 데모 빌드입니다. 처음 실행할 때 Windows SmartScreen에서는
 `추가 정보 → 실행`, macOS에서는 Finder에서 앱을 우클릭한 뒤 `열기`를 선택하세요.
 
+문서 본문 유사도 탐지는 Java 17 이상이 필요합니다. SBERT 모델은 처음 탐색할 때 약
+118MB를 한 번 내려받아 `~/.bium/models`에 저장하며, 이후에는 로컬 캐시만 사용합니다.
+
 ---
 
 ## 화면으로 보는 BIUM
@@ -75,6 +78,51 @@ GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 | **메일 정리** | Gmail 스팸·오래된 안읽음 / 네이버 대용량 첨부 | 추천 확인 |
 
 파이프라인 메모: [`docs/SIMILARITY_PIPELINE.md`](docs/SIMILARITY_PIPELINE.md)
+
+---
+
+## 발표자료로 보는 BIUM
+
+21페이지 발표 PDF에서 문제·솔루션·탐지 구조·기대효과를 보여주는 핵심 장면을
+선별했습니다.
+
+![BIUM 발표 표지](docs/screenshots/deck-01-cover.png)
+
+### 문제 — 저장 공간은 차지만 무엇을 지울지 판단하기 어렵다
+
+![여러 드라이브의 저장 공간 부족](docs/screenshots/deck-02-problem.png)
+
+로컬 디스크와 여러 클라우드·메일함에 데이터가 흩어져 있어 사용량은 보여도
+중복 여부와 보존 가치는 바로 알기 어렵습니다. BIUM은 이 판단 비용을 줄이기 위해
+파일을 하나씩 보여주는 대신 정리 가능한 묶음으로 재구성합니다.
+
+### 솔루션 — 개인과 조직을 하나의 정리 흐름으로 연결
+
+![개인용 BIUM Mini 솔루션](docs/screenshots/deck-10-personal-solution.png)
+
+개인 화면에서는 메뉴바 Mini와 데스크톱 펫이 탐색을 안내하고, 사용자가 남길 위치를
+직접 선택합니다.
+
+![조직용 저장 공간 최적화 대시보드](docs/screenshots/deck-11-org-solution.png)
+
+조직 화면에서는 기기별 정리 현황과 절감량을 집계해 저장 비용과 탄소 영향을 함께
+확인할 수 있도록 구성했습니다.
+
+### 탐지 파이프라인 — 유사 후보부터 찾고 Exact로 확정
+
+![BIUM 4단계 탐지 파이프라인](docs/screenshots/deck-14-pipeline.png)
+
+발표 PDF 제작 당시에는 유사 문서를 파일명 휴리스틱으로 설명했습니다. 현재 런타임은
+여기에 **Apache Tika 본문 추출 + 다국어 SBERT 임베딩 + 코사인 유사도 80%**를
+추가했으며, 사용할 수 없을 때만 파일명 유사도로 대체합니다.
+
+### 기대효과 — 저장량·비용·탄소를 함께 줄이는 구조
+
+![BIUM 정량적 기대효과](docs/screenshots/deck-19-impact.png)
+
+발표 자료의 수치는 10만 명이 각자 정리 후보의 일부를 실제로 비운다는 가정에서 산출한
+기대치입니다. 확정 절감량이 아니라 사용자 수, 실행률, 저장소 요금과 전력 배출계수에
+따라 달라지는 시나리오 값입니다.
 
 ---
 
@@ -158,8 +206,8 @@ flowchart LR
 
 ### 전체 기술 파이프라인 — 로컬 엔진 · 오픈소스 · 클라우드
 
-> 현재 런타임에는 별도 생성형 AI/임베딩 모델이 없습니다.
-> 실제 탐지는 **Czkawka의 BLAKE3·지각 해시**와 BIUM의 규칙 기반 로직이 담당합니다.
+> 문서 본문은 Apache Tika로 로컬 추출하고, 다국어 SBERT MiniLM으로 로컬 임베딩합니다.
+> 본문·임베딩은 외부 서버로 전송하지 않으며 코사인 유사도 **80% 이상**만 후보로 묶습니다.
 
 ```mermaid
 flowchart TB
@@ -174,9 +222,12 @@ flowchart TB
     PHOTO --> PHASH["Gradient perceptual hash<br/>hash size 16 · max difference 8"]
     PHASH --> PHOTO_GROUP["비슷한 사진 후보<br/>높은 해상도 우선 추천"]
 
-    ROOTS --> DOC["유사 문서<br/>BIUM filename heuristic"]
-    DOC --> STEM["확장자·공백·final·최종·vN 제거<br/>stem 기준 클러스터"]
-    STEM --> DOC_GROUP["비슷한 문서 후보<br/>사용자 재확인"]
+    ROOTS --> DOC["유사 문서<br/>Apache Tika 3.3.2"]
+    DOC --> SBERT["다국어 SBERT MiniLM<br/>본문 임베딩 · 로컬 캐시"]
+    SBERT --> COS["코사인 유사도 80% 이상<br/>complete-link 클러스터"]
+    DOC -. "추출·모델 사용 불가" .-> STEM["파일명 유사도 80% fallback"]
+    COS --> DOC_GROUP["비슷한 문서 후보<br/>사용자 재확인"]
+    STEM --> DOC_GROUP
 
     ROOTS --> EXACT["Exact 싼 확정 패스<br/>512KB 이상 · 약 28초 예산"]
     EXACT --> SIZE["크기 버킷<br/>다른 크기는 해시 생략"]
@@ -262,8 +313,11 @@ flowchart LR
     P["Gradient perceptual hash<br/>유사 이미지"]
     I["imapflow<br/>Naver IMAP"]
     N["Node.js crypto<br/>SHA-256 · MD5 fallback"]
+    T["Apache Tika 3.3.2<br/>문서 본문 추출"]
+    S["Multilingual MiniLM SBERT<br/>코사인 유사도 80%"]
     C --> B
     C --> P
+    T --> S
   end
 
   subgraph PATTERN["참고해 BIUM 코드로 이식한 패턴"]
@@ -274,8 +328,6 @@ flowchart LR
 
   subgraph REF["참고·향후 훅 — 현재 탐지에 사용 안 함"]
     ID["imagededup<br/>CNN / pHash 후보"]
-    T["Apache Tika<br/>문서 텍스트 추출 후보"]
-    S["Sentence Transformers<br/>문서 임베딩 후보"]
     A["Anthropic Claude<br/>현재 API 호출 없음 · 규칙 stub"]
   end
 
@@ -285,9 +337,9 @@ flowchart LR
 
   classDef active fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
   classDef future fill:#f1f1f1,stroke:#999,color:#666,stroke-dasharray:5 5
-  class E,EB,C,B,P,I,N active
+  class E,EB,C,B,P,I,N,T,S active
   class L,W,O active
-  class ID,T,S,A future
+  class ID,A future
 ```
 
 | 구분 | 실제 연결/역할 | 전송 데이터 |
@@ -468,8 +520,8 @@ npx --yes serve -p 5177
 |----------|----------|-----------------|
 | [Czkawka](https://github.com/qarmin/czkawka) | MIT | 중복 `dup` + 유사 이미지 `image` CLI |
 | [imagededup](https://github.com/idealo/imagededup) | Apache-2.0 | 사진 near-duplicate 장기 훅 자리 |
-| [Apache Tika](https://tika.apache.org/) | Apache-2.0 | 문서 텍스트 추출 훅 자리 |
-| [Sentence Transformers](https://www.sbert.net/) | Apache-2.0 | 문서 임베딩 유사도 훅 자리 |
+| [Apache Tika](https://tika.apache.org/) | Apache-2.0 | PDF·PPT·DOC 등 문서 본문 로컬 추출 |
+| [Sentence Transformers](https://www.sbert.net/) / [Multilingual MiniLM](https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2) | Apache-2.0 | 384차원 로컬 문서 임베딩 · 코사인 유사도 80% |
 | [LocalSend](https://github.com/localsend/localsend) / [protocol](https://github.com/localsend/protocol) | MIT | LAN 기기 발견 아이디어 → `electron/peers/lanPeer.js` |
 | [WindowPet](https://github.com/SeakMengs/WindowPet) | MIT | 투명·always-on-top 패턴 → `electron/desktopPet.js` |
 | [OpenPet](https://github.com/X-T-E-R/OpenPet) | — | Agent 이벤트 → 펫 행동 → `electron/agentEvents.js` |

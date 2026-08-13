@@ -33,6 +33,7 @@
       "assets/**/*",
       "fixtures/**/*",
       "vendor/bin/**/*",
+      "vendor/tika/**/*",
       "package.json",
       "!assets/retriever/retriever-kit.png",
       "!assets/retriever/@2x/**/*",
@@ -42,6 +43,8 @@
     ],
     "asarUnpack": [
       "vendor/bin/**/*",
+      "vendor/tika/**/*",
+      "node_modules/onnxruntime-node/**/*",
       "assets/icons/**/*"
     ],
     "mac": {
@@ -98,6 +101,7 @@
     "electron-builder": "^26.0.12"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "imapflow": "^1.7.0"
   }
 }
