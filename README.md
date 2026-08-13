@@ -69,18 +69,20 @@ GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 
 ## 핵심 흐름
 
-```text
-메뉴바 클릭 → Mini 홈
-      ↓
-Google / 네이버 연결 (설정)
-      ↓
-탐색 시작 → 펫이 Mac → Drive → Mail 순회
-      ↓
-완전 동일 · 비슷한 사진 · 메일 후보 수집
-(메타데이터·해시 중심, 파일 본문 미전송)
-      ↓
-남길 위치 다중 선택 → 로컬 ~/.Trash / Drive trash
+```mermaid
+flowchart LR
+  A[메뉴바 Mini] --> B[Google / 네이버 연결]
+  B --> C[탐색 시작]
+  C --> D[Mac · Drive · Mail 스캔]
+  D --> E[동일 · 유사 사진 · 메일 후보]
+  E --> F[남길 위치 다중 선택]
+  F --> G[로컬 Trash / Drive trash]
+
+  style A fill:#f7f0e6,stroke:#8a7263,color:#4a3428
+  style G fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
 ```
+
+메타데이터·해시 중심 · 파일 본문은 BIUM 서버로 전송하지 않습니다.
 
 ---
 
