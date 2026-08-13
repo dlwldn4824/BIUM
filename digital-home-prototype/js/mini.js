@@ -40,7 +40,20 @@ window.BiumMini = (() => {
 
   function setStatus(line) {
     const el = $("miniLocStatus");
-    if (el) el.textContent = line || "🐾 집에서 쉬는 중";
+    if (!el) return;
+    const text = (line || "").trim();
+    // Hide idle home status — pet + tagline already say enough
+    if (!text || /집에서 쉬는/.test(text)) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = text;
+  }
+
+  function clearStatus() {
+    setStatus("");
   }
 
   function applyAnim(name) {
@@ -94,7 +107,7 @@ window.BiumMini = (() => {
     } else if (scanning) {
       setStatus(snap.statusLine || "🐾 탐색 준비 중...");
     } else {
-      setStatus(snap.statusLine || "🐾 집에서 쉬는 중");
+      clearStatus();
       applyAnim("sleep");
     }
 
@@ -279,7 +292,7 @@ window.BiumMini = (() => {
       if ($("btnMiniScan")) $("btnMiniScan").hidden = false;
       setTimeout(() => {
         if (!locationState?.away) {
-          setStatus("🐾 집에서 쉬는 중");
+          clearStatus();
           applyAnim("sleep");
         }
       }, 1400);

@@ -37,9 +37,9 @@ let displayMode = "mini";
 /** last found duplicate group for panel */
 let lastPrimary = null;
 
-/** Compact TrayPopover (+ habitat + devices) */
+/** Compact TrayPopover — sized to fit without scrollbar */
 const MINI_W = 300;
-const MINI_H = 560;
+const MINI_H = 640;
 /** @type {number} */
 let trayBadge = 0;
 const HOME_W = 1280;

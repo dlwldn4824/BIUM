@@ -15,21 +15,30 @@
   width: 100%;
   max-width: 300px;
   margin: 0 auto;
-  padding: 34px 14px 12px;
+  padding: 32px 14px 10px;
   background:
     radial-gradient(120% 80% at 50% -10%, #fffdf8 0%, transparent 55%),
     linear-gradient(180deg, #fbf6ee 0%, var(--m-cream) 45%, var(--m-cream-2) 100%);
   color: var(--m-ink);
   font-family: "IBM Plex Sans KR", "Pretendard", -apple-system, sans-serif;
   box-sizing: border-box;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
   gap: 0;
+  overflow: hidden;
 }
 
 body[data-mode="mini"] {
   background: var(--m-cream);
+  height: 100%;
   min-height: 100%;
+  overflow: hidden;
+}
+
+html:has(body[data-mode="mini"]) {
+  height: 100%;
+  overflow: hidden;
 }
 
 body[data-mode="mini"] .app-frame {
@@ -79,11 +88,11 @@ body[data-mode="home"] .mini-root {
 }
 
 .mini-tagline {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   padding-left: 21px;
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.3;
   color: var(--m-muted);
 }
 
@@ -113,13 +122,14 @@ body[data-mode="home"] .mini-root {
 /* Cozy room behind the pet */
 .mini-habitat {
   position: relative;
-  height: 128px;
-  margin: 0 0 10px;
+  height: 112px;
+  margin: 0 0 8px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--m-line);
   box-shadow: 0 2px 0 rgba(90, 60, 40, 0.06);
   background: #f3ebdd;
+  flex: 0 0 auto;
 }
 
 .mini-habitat-bg {
@@ -208,15 +218,20 @@ body[data-mode="home"] .mini-root {
 }
 
 .mini-status {
-  margin: 0 0 12px;
-  padding: 10px 12px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
   background: var(--m-panel);
   border: 1px solid var(--m-line);
   border-radius: 12px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
   color: var(--m-ink);
+  flex: 0 0 auto;
+}
+
+.mini-status[hidden] {
+  display: none !important;
 }
 
 .mini-root.is-away .mini-status {
@@ -228,11 +243,12 @@ body[data-mode="home"] .mini-root {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
 }
 
 .mini-stat {
-  padding: 10px 10px 8px;
+  padding: 8px 10px 6px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.55);
 }
@@ -247,7 +263,7 @@ body[data-mode="home"] .mini-root {
 
 .mini-stat strong {
   display: block;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--m-ink);
@@ -255,7 +271,11 @@ body[data-mode="home"] .mini-root {
 
 /* Connected devices — quiet list, not game HUD */
 .mini-spaces-block {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mini-spaces-head {
@@ -294,11 +314,12 @@ body[data-mode="home"] .mini-root {
 .mini-spaces {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 2px 0;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid var(--m-line);
   overflow: hidden;
+  flex: 0 1 auto;
 }
 
 .mini-spaces li {
@@ -306,7 +327,7 @@ body[data-mode="home"] .mini-root {
   grid-template-columns: 22px 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-top: 1px solid rgba(90, 60, 40, 0.06);
 }
 
@@ -366,14 +387,15 @@ body[data-mode="home"] .mini-root {
   margin-top: auto;
   display: grid;
   gap: 6px;
-  padding-top: 4px;
+  padding-top: 2px;
+  flex: 0 0 auto;
 }
 
 .mini-cta {
   width: 100%;
   border: 0;
   border-radius: 999px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -417,15 +439,7 @@ body[data-mode="home"] .mini-root {
 }
 
 .mini-foot {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 2px 0 0;
-}
-
-.mini-foot time {
-  font-size: 10px;
-  color: var(--m-muted);
+  display: none;
 }
 
 .mini-home-link {
