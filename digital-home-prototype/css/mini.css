@@ -114,9 +114,48 @@ body[data-mode="home"] .mini-root {
 
 .mini-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.mini-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  max-width: 168px;
+  object-fit: contain;
+  object-position: left center;
+  background: transparent !important;
+  /* Avoid any browser default plate behind SVG */
+  mix-blend-mode: normal;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.mini-logo-cozy,
+.mini-logo-noir {
+  display: none;
+}
+
+/* Cream — brown mark, transparent plate */
+[data-theme="cozy"] .mini-logo-cozy,
+:root:not([data-theme]) .mini-logo-cozy {
+  display: block;
+}
+
+[data-theme="cozy"] .mini-logo-noir,
+:root:not([data-theme]) .mini-logo-noir {
+  display: none !important;
+}
+
+/* Midnight — white mark, transparent plate (no black box) */
+[data-theme="noir"] .mini-logo-cozy {
+  display: none !important;
+}
+
+[data-theme="noir"] .mini-logo-noir {
+  display: block;
 }
 
 .mini-home-ico {
@@ -180,7 +219,7 @@ body[data-mode="home"] .mini-root {
 /* Cozy room — pets wander on the floor via --x / --y */
 .mini-habitat {
   position: relative;
-  height: 124px;
+  height: 148px;
   margin: 0 0 8px;
   border-radius: 12px;
   overflow: hidden;
@@ -209,31 +248,51 @@ body[data-mode="home"] .mini-root {
 .mini-pet {
   position: absolute;
   left: var(--x, 18%);
-  bottom: var(--y, 6%);
-  width: 64px;
-  height: 64px;
+  bottom: var(--y, 4%);
+  width: 96px;
+  height: 104px;
   z-index: 2;
   pointer-events: none;
+  image-rendering: auto;
+  /* steps keeps walk pose in sync with sprite frame swaps */
+  transition:
+    left 0.9s steps(12),
+    bottom 0.9s steps(12),
+    opacity 160ms ease;
+  background-repeat: no-repeat;
+  background-color: transparent;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.mini-pet.frame-pet-host,
+.mini-pet.gif-pet-host {
+  display: grid;
+  place-items: end center;
+  overflow: visible;
+}
+
+.mini-pet.frame-pet-host img {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  transition:
-    left 0.85s linear,
-    bottom 0.85s linear,
-    opacity 160ms ease;
-  will-change: left, bottom;
 }
 
 .mini-pet.gif-pet-host {
   image-rendering: auto;
-  display: grid;
-  place-items: end center;
+  width: 96px;
+  height: 96px;
 }
 
 .mini-pet.gif-pet-host img {
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   object-fit: contain;
   display: block;
+  image-rendering: auto;
 }
 
 .mini-habitat.is-away .mini-pets {

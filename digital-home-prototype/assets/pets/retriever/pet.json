@@ -1,11 +1,13 @@
 {
   "id": "bium-retriever",
-  "displayName": "BIUM Retriever",
+  "displayName": "강아지",
   "description": "Golden retriever file agent. Atlas layout compatible with OpenPets/petx (8 cols); BIUM rows extend service states.",
   "spritesheetPath": "spritesheet.png",
   "cellSize": 64,
   "columns": 8,
   "rows": 16,
+  "scale": 2,
+  "usesCarryProp": false,
   "licenseNote": "Animation layout inspired by OpenPets (MIT) / petx atlas conventions. Pixel art by BIUM team.",
   "references": [
     "https://github.com/alterhq/openpets",

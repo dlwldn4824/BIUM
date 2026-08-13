@@ -16,10 +16,10 @@
   --panel: #fffaf2;
   --shadow: 2px 2px 0 rgba(139, 99, 70, 0.22);
   --px: 2px;
-  /* Agent: classic Neko 32px cells → 96 (3× integer) */
-  --agent-native: 32px;
-  --agent-scale: 3;
-  --cat: calc(var(--agent-native) * var(--agent-scale)); /* 96 */
+  /* Agent display box — Retriever frames are 64→128; Neko atlas sets its own size */
+  --agent-native: 64px;
+  --agent-scale: 2;
+  --cat: calc(var(--agent-native) * var(--agent-scale)); /* 128 */
   --pixel: "Press Start 2P", ui-monospace, monospace;
   --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
 }
@@ -905,10 +905,29 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   object-fit: contain;
   image-rendering: auto;
 }
+.frame-pet-host {
+  display: grid;
+  place-items: end center;
+  overflow: visible;
+  background: none !important;
+}
+.frame-pet-host img {
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
 .agent[data-pet="pawpal-puppy"] .gif-pet-host,
 .agent[data-pet="pawpal-puppy"] {
   width: 96px;
   height: 96px;
+}
+.agent[data-pet="bium-retriever"],
+.agent[data-pet="golden-retriever"] {
+  --cat: 104px;
+}
+.agent[data-pet="golden-retriever"] .pet-atlas {
+  image-rendering: auto;
 }
 
 /* game speech bubble (not browser tooltip) */

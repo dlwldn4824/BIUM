@@ -1114,6 +1114,34 @@
     );
   }
 
+  /** Open the highest-priority actionable candidate, skipping the hub. */
+  function openTopFinding() {
+    if (photoGroups().length) {
+      openPhotoStackModal();
+      return;
+    }
+    if (docGroups().length) {
+      openDocReviewModal();
+      return;
+    }
+    if (
+      exactGroups().length ||
+      (data.duplicate?.files?.length || 0) >= 2
+    ) {
+      openExactDupList();
+      return;
+    }
+    if (data.mailCleanup?.groups?.length) {
+      openMailCleanupModal();
+      return;
+    }
+    if (coldGroups().length) {
+      openHibernateModal();
+      return;
+    }
+    openFindingsHub();
+  }
+
   function openFindingsHub() {
     const exact = exactGroups();
     const hasDup =
@@ -2168,6 +2196,7 @@
     applyMailCleanup,
     openMailCleanupModal,
     openFindingsHub,
+    openTopFinding,
     openExactDupList,
     applyCandidates,
     applyExactGroups,

@@ -1,16 +1,18 @@
 /**
- * Agent sprite — classic Neko tied to BIUM service states.
- *
- * sleep → run → found(alert) → carry+file → happy(wag)
+ * Agent sprite — PetAtlas wrapper for BIUM service states.
  */
 window.RetrieverSprite = class RetrieverSprite {
   /**
    * @param {HTMLElement} el
    * @param {HTMLElement} [root]
+   * @param {{ base?: string, petKey?: string, cacheBust?: string }} [opts]
    */
-  constructor(el, root) {
+  constructor(el, root, opts = {}) {
     this.el = el;
     this.root = root || el.closest(".agent") || el.parentElement;
+    this.base = (opts.base || "assets/pets/neko").replace(/\/$/, "");
+    this.petKey = opts.petKey || "neko";
+    this.cacheBust = opts.cacheBust || "atlas1";
     this.state = "sleep";
     this.facing = "right";
     this.atlas = null;
@@ -20,18 +22,31 @@ window.RetrieverSprite = class RetrieverSprite {
 
   async _boot() {
     try {
-      const base = "assets/pets/neko";
-      const res = await fetch(`${base}/pet.json?v=neko2`);
+      const res = await fetch(`${this.base}/pet.json?v=${this.cacheBust}`);
       if (!res.ok) throw new Error(`pet.json ${res.status}`);
       const manifest = await res.json();
-      const sheet = `${base}/${manifest.spritesheetPath}?v=neko2`;
+      const sheetName =
+        manifest.spritesheetPath ||
+        manifest.spritesheetPathFull ||
+        "spritesheet.png";
+      const sheet = `${this.base}/${sheetName}?v=${this.cacheBust}`;
+      // Warm decode so first frames don't hitch
+      try {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = sheet;
+        if (img.decode) await img.decode().catch(() => {});
+      } catch {
+        /* ignore */
+      }
+      this.usesCarryProp = manifest.usesCarryProp !== false;
       this.atlas = new window.PetAtlas(this.el, manifest, sheet);
       this.atlas.setFacing(this.facing);
       this.setState(this.state);
-      if (this.root) this.root.dataset.pet = "neko";
+      if (this.root) this.root.dataset.pet = manifest.id || this.petKey;
       return this.atlas;
     } catch (err) {
-      console.error("[RetrieverSprite] neko atlas boot failed", err);
+      console.error(`[RetrieverSprite] ${this.petKey} atlas boot failed`, err);
       throw err;
     }
   }
@@ -41,7 +56,6 @@ window.RetrieverSprite = class RetrieverSprite {
     return this.atlas;
   }
 
-  /** Map BIUM agent state → Neko animation */
   animFor(state, facing) {
     if (state === "walk" || state === "run") {
       return facing === "left" ? "running-left" : "running-right";
@@ -49,27 +63,19 @@ window.RetrieverSprite = class RetrieverSprite {
     if (state === "carry") {
       return facing === "left" ? "carry-left" : "carry-right";
     }
-    const map = {
-      idle: "sleep",
-      sleep: "sleep",
-      search: "search",
-      found: "found",
-      clean: "clean",
-      happy: "wag",
-      wag: "wag",
-      waiting: "sleep",
-      waving: "wag",
-      jumping: "found",
-    };
-    return map[state] || "sleep";
+    return state;
+  }
+
+  _applyAnim() {
+    const anim = this.animFor(this.state, this.facing);
+    if (this.atlas) this.atlas.setAnimation(anim);
+    else this._ready.then(() => this.atlas && this.atlas.setAnimation(anim));
   }
 
   setState(state) {
     this.state = state;
     if (this.root) this.root.dataset.state = state;
-    const anim = this.animFor(state, this.facing);
-    if (this.atlas) this.atlas.setAnimation(anim);
-    else this._ready.then(() => this.atlas && this.atlas.setAnimation(anim));
+    this._applyAnim();
   }
 
   setFacing(facing) {
@@ -78,7 +84,14 @@ window.RetrieverSprite = class RetrieverSprite {
     this.facing = next;
     if (this.root) this.root.dataset.facing = next;
     if (this.atlas) this.atlas.setFacing(next);
-    this.setState(this.state);
+    // Directional states need a different row; others keep looping.
+    if (
+      this.state === "walk" ||
+      this.state === "run" ||
+      this.state === "carry"
+    ) {
+      this._applyAnim();
+    }
   }
 };
 

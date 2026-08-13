@@ -7,6 +7,17 @@
 macOS **메뉴바 유틸리티**(Electron) · CHIC 해커톤  
 GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 
+## 앱 다운로드
+
+[GitHub Releases에서 최신 BIUM 받기](https://github.com/dlwldn4824/BIUM/releases/latest)
+
+- **Windows 10/11 (64비트)**: `BIUM-*-win-x64.exe`
+- **Apple Silicon Mac**: `BIUM-*-mac-arm64.dmg`
+- **Intel Mac**: `BIUM-*-mac-x64.dmg`
+
+현재 배포본은 코드 서명 전 데모 빌드입니다. 처음 실행할 때 Windows SmartScreen에서는
+`추가 정보 → 실행`, macOS에서는 Finder에서 앱을 우클릭한 뒤 `열기`를 선택하세요.
+
 ---
 
 ## 화면으로 보는 BIUM

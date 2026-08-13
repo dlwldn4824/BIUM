@@ -1,0 +1,52 @@
+{
+  "id": "golden-retriever",
+  "displayName": "강아지",
+  "description": "Open-source Codex/Petdex Golden Retriever (MIT via codex-pet.com / awesome-codex-pets).",
+  "spritesheetPath": "spritesheet@0.5.png",
+  "spritesheetPathFull": "spritesheet.png",
+  "cellWidth": 96,
+  "cellHeight": 104,
+  "columns": 8,
+  "rows": 9,
+  "scale": 1,
+  "softSprite": true,
+  "usesCarryProp": true,
+  "flipLeft": false,
+  "source": {
+    "project": "Petdex / Codex Pets",
+    "id": "golden-retriever",
+    "url": "https://petdex.dev/pets/golden-retriever",
+    "gallery": "https://github.com/BeiXiao/awesome-codex-pets",
+    "license": "MIT"
+  },
+  "animations": [
+    { "name": "idle", "row": 0, "frames": 6, "ms": 280 },
+    { "name": "running-right", "row": 1, "frames": 8, "ms": 100 },
+    { "name": "running-left", "row": 2, "frames": 8, "ms": 100 },
+    { "name": "waving", "row": 3, "frames": 4, "ms": 220 },
+    { "name": "jumping", "row": 4, "frames": 5, "ms": 160 },
+    { "name": "failed", "row": 5, "frames": 4, "ms": 220 },
+    { "name": "waiting", "row": 6, "frames": 6, "ms": 200 },
+    { "name": "running", "row": 7, "frames": 6, "ms": 110 },
+    { "name": "review", "row": 8, "frames": 6, "ms": 240 }
+  ],
+  "aliases": {
+    "sleep": "waiting",
+    "idle": "idle",
+    "walk": "running-right",
+    "walk-right": "running-right",
+    "walk-left": "running-left",
+    "run": "running-right",
+    "search": "review",
+    "found": "jumping",
+    "carry": "running-right",
+    "carry-right": "running-right",
+    "carry-left": "running-left",
+    "clean": "review",
+    "happy": "waving",
+    "wag": "waving",
+    "waving": "waving",
+    "jumping": "jumping",
+    "waiting": "waiting"
+  }
+}

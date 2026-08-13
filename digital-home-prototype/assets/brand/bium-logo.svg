@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 253" width="1024" height="253" role="img" aria-label="BIUM ??">
+  <!-- Transparent root — no black plate. Raster mark has leaf/cutouts as alpha. -->
+  <image
+    width="1024"
+    height="253"
+    href="bium-logo-cozy.png"
+    xlink:href="bium-logo-cozy.png"
+    preserveAspectRatio="xMinYMid meet"
+  />
+</svg>

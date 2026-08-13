@@ -17,7 +17,9 @@ window.GifPet = class GifPet {
     this.usesCarryProp = manifest.usesCarryProp !== false;
     this.flipLeft = manifest.flipLeft !== false;
     this.size = manifest.displaySize || 96;
-    this.cacheBust = "paw1";
+    this.native = this.size;
+    this.cacheBust = "paw2";
+    this._preload();
 
     if (el.tagName === "IMG") {
       this.img = el;
@@ -32,15 +34,36 @@ window.GifPet = class GifPet {
       el.appendChild(this.img);
     }
 
-    this.img.style.width = `${this.size}px`;
-    this.img.style.height = `${this.size}px`;
+    this._applySize();
     this.img.style.objectFit = "contain";
     this.img.style.imageRendering = "auto";
-    this.host.style.width = `${this.size}px`;
-    this.host.style.height = `${this.size}px`;
     this._applyFlip();
     this.setState(this.state);
     if (this.root) this.root.dataset.pet = manifest.id || "gif-pet";
+  }
+
+  _preload() {
+    const states = this.manifest.states || {};
+    const seen = new Set();
+    Object.values(states).forEach((entry) => {
+      if (!entry?.src || seen.has(entry.src)) return;
+      seen.add(entry.src);
+      const img = new Image();
+      img.src = `${this.baseDir}/${entry.src}?v=${this.cacheBust}`;
+    });
+  }
+
+  _applySize() {
+    const px = `${this.size}px`;
+    this.img.style.width = px;
+    this.img.style.height = px;
+    this.host.style.width = px;
+    this.host.style.height = px;
+  }
+
+  setDisplaySize(px) {
+    this.size = Math.max(48, Number(px) || this.size);
+    this._applySize();
   }
 
   srcFor(state) {
@@ -82,7 +105,7 @@ window.GifPet = class GifPet {
     this.facing = next;
     if (this.root) this.root.dataset.facing = next;
     this._applyFlip();
-    this.setState(this.state);
+    // Same GIF for L/R — flip only, don't reload src (avoids animation hitch).
   }
 
   _applyFlip() {

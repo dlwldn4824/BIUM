@@ -1,10 +1,9 @@
 /**
- * Pet appearance: neko (classic) | pawpal (golden puppy GIFs)
+ * Pet appearance: neko (classic) | retriever (PawPal white golden puppy GIFs)
  */
 window.BiumPet = (() => {
   const KEY = "bium.petId";
-  /** Default dog (PawPal); switch to Neko in Settings → Pet */
-  const DEFAULT = "pawpal";
+  const DEFAULT = "retriever";
 
   const CATALOG = {
     neko: {
@@ -12,21 +11,27 @@ window.BiumPet = (() => {
       label: "Neko",
       kind: "atlas",
       base: "assets/pets/neko",
+      cacheBust: "neko3",
       blurb: "고전 데스크탑 고양이",
     },
-    pawpal: {
-      id: "pawpal",
-      label: "Golden Puppy",
+    retriever: {
+      id: "retriever",
+      label: "강아지",
       kind: "gif",
       base: "assets/pets/pawpal-puppy",
-      blurb: "PawPal 금모 퍼피",
+      cacheBust: "paw2",
+      blurb: "하얀 금모 퍼피",
     },
   };
 
+  function normalize(id) {
+    if (id === "pawpal") return "retriever";
+    return CATALOG[id] ? id : DEFAULT;
+  }
+
   function read() {
     try {
-      const v = localStorage.getItem(KEY);
-      return CATALOG[v] ? v : DEFAULT;
+      return normalize(localStorage.getItem(KEY));
     } catch {
       return DEFAULT;
     }
@@ -45,18 +50,30 @@ window.BiumPet = (() => {
   }
 
   function getMeta(id = read()) {
-    return CATALOG[id] || CATALOG[DEFAULT];
+    return CATALOG[normalize(id)] || CATALOG[DEFAULT];
   }
 
   async function createForId(id, el, root) {
     const meta = getMeta(id);
+    const bust = meta.cacheBust || "v1";
     if (meta.kind === "gif") {
-      const res = await fetch(`${meta.base}/pet.json?v=paw1`);
+      const res = await fetch(`${meta.base}/pet.json?v=${bust}`);
       const manifest = await res.json();
-      return new window.GifPet(el, root, manifest, meta.base);
+      manifest.displayName = meta.label || manifest.displayName;
+      const pet = new window.GifPet(el, root, manifest, meta.base);
+      pet.cacheBust = bust;
+      return pet;
     }
-    // Neko atlas via RetrieverSprite (loads its own manifest)
-    return new window.RetrieverSprite(el, root);
+    if (meta.kind === "frames") {
+      const res = await fetch(`${meta.base}/pet.json?v=${bust}`);
+      const manifest = await res.json();
+      return new window.FramePet(el, root, manifest, meta.base);
+    }
+    return new window.RetrieverSprite(el, root, {
+      base: meta.base,
+      petKey: meta.id,
+      cacheBust: bust,
+    });
   }
 
   async function create(el, root) {
@@ -64,12 +81,13 @@ window.BiumPet = (() => {
   }
 
   function setId(id) {
-    if (!CATALOG[id]) return getId();
-    write(id);
+    const next = normalize(id);
+    if (!CATALOG[next]) return getId();
+    write(next);
     document.dispatchEvent(
-      new CustomEvent("bium:pet", { detail: { petId: id } })
+      new CustomEvent("bium:pet", { detail: { petId: next } })
     );
-    return id;
+    return next;
   }
 
   return {

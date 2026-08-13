@@ -1,0 +1,108 @@
+{
+  "id": "bium-retriever",
+  "displayName": "강아지",
+  "type": "frames",
+  "description": "64×64 transparent PNG frames. Animation via img.src swap; room move via CSS --x/--y.",
+  "cellSize": 64,
+  "scale": 2,
+  "usesCarryProp": false,
+  "flipLeft": false,
+  "states": {
+    "idle": {
+      "ms": 320,
+      "frames": ["idle/idle_01.png", "idle/idle_02.png"]
+    },
+    "sleep": {
+      "ms": 400,
+      "frames": ["sleep/sleep_01.png", "sleep/sleep_02.png"]
+    },
+    "waiting": {
+      "ms": 320,
+      "frames": ["idle/idle_01.png", "idle/idle_02.png"]
+    },
+    "walk": {
+      "ms": 120,
+      "frames": [
+        "walk-right/walk_right_01.png",
+        "walk-right/walk_right_02.png",
+        "walk-right/walk_right_03.png",
+        "walk-right/walk_right_04.png"
+      ]
+    },
+    "running-right": {
+      "ms": 120,
+      "frames": [
+        "walk-right/walk_right_01.png",
+        "walk-right/walk_right_02.png",
+        "walk-right/walk_right_03.png",
+        "walk-right/walk_right_04.png"
+      ]
+    },
+    "running-left": {
+      "ms": 120,
+      "frames": [
+        "walk-left/walk_left_01.png",
+        "walk-left/walk_left_02.png",
+        "walk-left/walk_left_03.png",
+        "walk-left/walk_left_04.png"
+      ]
+    },
+    "search": {
+      "ms": 160,
+      "frames": [
+        "search/search_01.png",
+        "search/search_02.png",
+        "search/search_03.png",
+        "search/search_04.png"
+      ]
+    },
+    "found": {
+      "ms": 280,
+      "frames": ["found/found_01.png", "found/found_02.png"]
+    },
+    "carry": {
+      "ms": 120,
+      "frames": [
+        "carry-right/carry_right_01.png",
+        "carry-right/carry_right_02.png",
+        "carry-right/carry_right_03.png"
+      ]
+    },
+    "carry-right": {
+      "ms": 120,
+      "frames": [
+        "carry-right/carry_right_01.png",
+        "carry-right/carry_right_02.png",
+        "carry-right/carry_right_03.png"
+      ]
+    },
+    "carry-left": {
+      "ms": 120,
+      "frames": [
+        "carry-left/carry_left_01.png",
+        "carry-left/carry_left_02.png",
+        "carry-left/carry_left_03.png"
+      ]
+    },
+    "clean": {
+      "ms": 220,
+      "frames": ["clean/clean_01.png", "clean/clean_02.png", "clean/clean_03.png"]
+    },
+    "happy": {
+      "ms": 280,
+      "frames": ["happy/happy_01.png", "happy/happy_02.png"]
+    },
+    "wag": {
+      "ms": 280,
+      "frames": ["happy/happy_01.png", "happy/happy_02.png"]
+    },
+    "waving": {
+      "ms": 280,
+      "frames": ["happy/happy_01.png", "happy/happy_02.png"]
+    },
+    "jumping": {
+      "ms": 200,
+      "frames": ["found/found_01.png", "found/found_02.png"]
+    }
+  }
+}

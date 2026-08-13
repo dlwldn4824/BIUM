@@ -1,8 +1,8 @@
 {
   "id": "pawpal-puppy",
-  "displayName": "Golden Puppy",
+  "displayName": "강아지",
   "type": "gif",
-  "description": "PawPal 金毛 puppy GIFs mapped to BIUM story states.",
+  "description": "PawPal white golden puppy GIFs mapped to BIUM story states.",
   "displaySize": 96,
   "flipLeft": true,
   "usesCarryProp": true,

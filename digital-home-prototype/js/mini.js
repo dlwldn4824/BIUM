@@ -153,11 +153,12 @@ window.BiumMini = (() => {
     const nextX = 4 + Math.random() * 68;
     const nextY = 2 + Math.random() * 12;
     const facing = nextX >= slot.x ? "right" : "left";
+    // Facing first, then one state change — avoids double animation reset.
     slot.pet.setFacing?.(facing);
     slot.pet.setState?.("run");
     placePet(slot, nextX, nextY);
 
-    const walkMs = 850;
+    const walkMs = 900;
     slot.timer = setTimeout(() => {
       if (!wanderOn) return;
       const rest = Math.random();
@@ -181,18 +182,27 @@ window.BiumMini = (() => {
 
   async function sizePetHost(el, instance) {
     await instance?.ensure?.();
-    if (instance?.atlas) {
-      instance.atlas.scale = Math.max(
-        1,
-        Math.round(64 / (instance.atlas.cell || 32))
-      );
-      instance.atlas._applySize?.();
-    } else if (instance) {
-      instance.size = 64;
-      if (instance.img) {
-        instance.img.style.width = "64px";
-        instance.img.style.height = "64px";
-      }
+    const atlas = instance?.atlas;
+    if (atlas) {
+      // Integer scale only — fractional scale misaligns atlas frames (stutter).
+      const cellH = atlas.cellH || atlas.cell || 32;
+      const targetH = atlas.softSprite ? cellH : cellH <= 32 ? 64 : cellH;
+      const scale = Math.max(1, Math.round(targetH / cellH));
+      atlas.scale = scale;
+      atlas._applySize?.();
+      atlas.paint?.();
+      el.style.width = `${atlas.display}px`;
+      el.style.height = `${atlas.displayH || atlas.display}px`;
+      el.style.imageRendering = atlas.softSprite ? "auto" : "pixelated";
+      return;
+    }
+    if (typeof instance?.setDisplaySize === "function") {
+      const gifSize = instance.manifest?.type === "gif" ? 96 : 96;
+      instance.setDisplaySize(gifSize);
+      el.style.width = `${instance.size}px`;
+      el.style.height = `${instance.size}px`;
+      el.style.imageRendering = "auto";
+      return;
     }
     el.style.width = "64px";
     el.style.height = "64px";
@@ -618,6 +628,19 @@ window.BiumMini = (() => {
     openFindings();
   }
 
+  /** Primary CTA → skip the hub and open the best candidate. */
+  function openTopFinding() {
+    if (refreshFindCount() <= 0) {
+      setStatus("🐾 아직 가져온 발견이 없어요");
+      return;
+    }
+    if (window.BiumApp?.openTopFinding) {
+      window.BiumApp.openTopFinding();
+      return;
+    }
+    openFindings();
+  }
+
   /** "정리 후보" → carbon + social cost estimates */
   function openCleanableImpact() {
     if (window.BiumApp?.openCleanableImpactFromMini) {
@@ -684,8 +707,8 @@ window.BiumMini = (() => {
     el.className = "mini-pet pet-atlas";
     el.hidden = false;
 
-    // Settings에서 고른 펫 하나만 (neko | pawpal)
-    const petId = window.BiumPet.getId?.() || "pawpal";
+    // Settings에서 고른 펫 하나만 (neko | retriever)
+    const petId = window.BiumPet.getId?.() || "retriever";
     pet = window.BiumPet.createForId
       ? await window.BiumPet.createForId(petId, el, el)
       : await window.BiumPet.create(el, el);
@@ -743,7 +766,7 @@ window.BiumMini = (() => {
 
     $("btnMiniScan")?.addEventListener("click", () => startLiveScan());
     $("btnMiniSummon")?.addEventListener("click", () => summonHere());
-    $("btnFindOpen")?.addEventListener("click", () => openFindings());
+    $("btnFindOpen")?.addEventListener("click", () => openTopFinding());
     $("btnMiniNewFinds")?.addEventListener("click", () => openNewFinds());
     $("btnMiniCleanable")?.addEventListener("click", () => openCleanableImpact());
     $("btnConnectSpace")?.addEventListener("click", () => openAddDeviceSheet());

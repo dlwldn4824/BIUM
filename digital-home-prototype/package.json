@@ -2,14 +2,16 @@
   "name": "bium-home",
   "productName": "BIUM",
   "version": "0.1.0",
-  "description": "BIUM Digital Home — macOS mini app",
+  "description": "BIUM Digital Home — desktop cleanup companion",
   "main": "electron/main.js",
   "author": "CHIC Hackathon",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
+    "dist": "npm run dist:mac",
+    "dist:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
     "install:local": "npm run dist && bash scripts/install-local.sh"
   },
   "build": {
@@ -21,6 +23,7 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "artifactName": "BIUM-${version}-${os}-${arch}.${ext}",
     "files": [
       "electron/**/*",
       "index.html",
@@ -43,16 +46,21 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
-      "icon": "build/icon.icns",
-      "identity": "-",
+      "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
         {
-          "target": "dir",
+          "target": "dmg",
           "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
             "arm64"
           ]
         }
@@ -63,6 +71,26 @@
         "NSHighResolutionCapable": true,
         "LSUIElement": true
       }
+    },
+    "dmg": {
+      "title": "BIUM ${version}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BIUM"
     }
   },
   "devDependencies": {

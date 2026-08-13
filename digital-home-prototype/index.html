@@ -10,17 +10,31 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/pixel.css?v=impact1" />
-    <link rel="stylesheet" href="css/mini.css?v=onepet1" />
+    <link rel="stylesheet" href="css/pixel.css?v=anim2" />
+    <link rel="stylesheet" href="css/mini.css?v=paw3" />
   </head>
   <body data-mode="mini" data-theme="cozy">
     <!-- ===== TrayPopover — quiet macOS utility + pixel pet ===== -->
     <aside class="mini-root is-home" id="miniRoot" data-view="status" aria-label="BIUM 비움">
       <header class="mini-head">
         <div class="mini-brand">
-          <span class="mini-home-ico" aria-hidden="true">⌂</span>
-          <h1>BIUM</h1>
-          <span class="mini-brand-ko">비움</span>
+          <!-- Theme logos: alpha PNG (black preview plate removed). No black fill. -->
+          <img
+            class="mini-logo mini-logo-cozy"
+            src="assets/brand/bium-logo-cozy.png"
+            width="148"
+            height="36"
+            alt="BIUM 비움"
+            draggable="false"
+          />
+          <img
+            class="mini-logo mini-logo-noir"
+            src="assets/brand/bium-logo-noir.png"
+            width="148"
+            height="36"
+            alt="BIUM 비움"
+            draggable="false"
+          />
         </div>
         <button class="mini-settings" id="btnMiniSettings" type="button" title="설정" aria-label="설정">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -84,8 +98,13 @@
         <button class="mini-cta mini-cta-summon" id="btnMiniSummon" type="button" hidden>
           여기로 와!
         </button>
-        <button class="mini-cta mini-cta-secondary" id="btnFindOpen" type="button">
-          발견한 항목 보기
+        <button
+          class="mini-cta mini-cta-secondary"
+          id="btnFindOpen"
+          type="button"
+          title="가장 먼저 정리할 만한 항목 열기"
+        >
+          추천 1순위 바로 보기
         </button>
         <div class="mini-foot">
           <time id="miniLastScan">아직 탐색하지 않았어요</time>
@@ -421,14 +440,15 @@
 
     <script src="js/data.js?v=scanfast1"></script>
     <script src="js/mode.js?v=scanfast1"></script>
-    <script src="js/petSelect.js?v=wander1"></script>
+    <script src="js/petSelect.js?v=paw3"></script>
     <script src="js/scan/mapCzkawka.js?v=finds1"></script>
     <script src="js/scan/session.js?v=finds1"></script>
-    <script src="js/components/PetAtlas.js?v=scanfast1"></script>
-    <script src="js/components/GifPet.js?v=scanfast1"></script>
-    <script src="js/components/RetrieverSprite.js?v=scanfast1"></script>
+    <script src="js/components/PetAtlas.js?v=anim2"></script>
+    <script src="js/components/GifPet.js?v=paw3"></script>
+    <script src="js/components/FramePet.js?v=framepet1"></script>
+    <script src="js/components/RetrieverSprite.js?v=anim2"></script>
     <script src="js/components/CatAgent.js?v=scanfast1"></script>
-    <script src="js/mini.js?v=onepet1"></script>
+    <script src="js/mini.js?v=paw3"></script>
     <script src="js/app.js?v=btnspace1"></script>
   </body>
 </html>
