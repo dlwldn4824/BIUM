@@ -27,9 +27,9 @@ window.BiumMini = (() => {
   };
 
   /** @type {any} */
-  let pet = null; // primary (dog) — kept for older callers
-  /** @type {Array<{ id: string, el: HTMLElement, pet: any, x: number, y: number, timer: any }>} */
-  let habitatPets = [];
+  let pet = null;
+  /** @type {{ id: string, el: HTMLElement, pet: any, x: number, y: number, timer: any } | null} */
+  let habitatSlot = null;
   let wanderOn = false;
   let scanning = false;
   let lastScanAt = null;
@@ -111,13 +111,7 @@ window.BiumMini = (() => {
 
   function applyAnim(name) {
     const state = name === "walk" ? "run" : name;
-    for (const slot of habitatPets) {
-      slot.pet?.setState?.(state);
-    }
-    if (!habitatPets.length && pet) {
-      pet.setState(state);
-    }
-    // After a short found/happy beat, resume roaming at home
+    pet?.setState?.(state);
     if (state === "found" || state === "happy" || state === "search") {
       pauseWanderBriefly(1600);
     } else if (state === "sleep" || state === "idle" || state === "run") {
@@ -126,6 +120,7 @@ window.BiumMini = (() => {
   }
 
   function placePet(slot, x, y) {
+    if (!slot) return;
     slot.x = x;
     slot.y = y;
     slot.el.style.setProperty("--x", `${x.toFixed(1)}%`);
@@ -134,11 +129,9 @@ window.BiumMini = (() => {
 
   function stopWander() {
     wanderOn = false;
-    for (const slot of habitatPets) {
-      if (slot.timer) {
-        clearTimeout(slot.timer);
-        slot.timer = null;
-      }
+    if (habitatSlot?.timer) {
+      clearTimeout(habitatSlot.timer);
+      habitatSlot.timer = null;
     }
   }
 
@@ -156,8 +149,7 @@ window.BiumMini = (() => {
   }
 
   function stepWander(slot) {
-    if (!wanderOn || locationState?.away || scanning) return;
-    // Floor band inside habitat (leave margin for 64px sprite)
+    if (!wanderOn || locationState?.away || scanning || !slot?.pet) return;
     const nextX = 4 + Math.random() * 68;
     const nextY = 2 + Math.random() * 12;
     const facing = nextX >= slot.x ? "right" : "left";
@@ -168,7 +160,6 @@ window.BiumMini = (() => {
     const walkMs = 850;
     slot.timer = setTimeout(() => {
       if (!wanderOn) return;
-      // Short rest: idle / sleep mix
       const rest = Math.random();
       if (rest < 0.35) slot.pet.setState?.("sleep");
       else if (rest < 0.7) slot.pet.setState?.("idle");
@@ -179,20 +170,22 @@ window.BiumMini = (() => {
 
   function startWander() {
     if (locationState?.away || scanning) return;
-    if (!habitatPets.length) return;
+    if (!habitatSlot?.pet) return;
     wanderOn = true;
-    for (const slot of habitatPets) {
-      if (slot.timer) clearTimeout(slot.timer);
-      // stagger so they don't sync-step
-      const stagger = slot.id === "cat" ? 400 : 0;
-      slot.timer = setTimeout(() => stepWander(slot), 200 + stagger + Math.random() * 500);
-    }
+    if (habitatSlot.timer) clearTimeout(habitatSlot.timer);
+    habitatSlot.timer = setTimeout(
+      () => stepWander(habitatSlot),
+      200 + Math.random() * 500
+    );
   }
 
   async function sizePetHost(el, instance) {
     await instance?.ensure?.();
     if (instance?.atlas) {
-      instance.atlas.scale = Math.max(1, Math.round(64 / (instance.atlas.cell || 32)));
+      instance.atlas.scale = Math.max(
+        1,
+        Math.round(64 / (instance.atlas.cell || 32))
+      );
       instance.atlas._applySize?.();
     } else if (instance) {
       instance.size = 64;
@@ -679,33 +672,36 @@ window.BiumMini = (() => {
   }
 
   async function remountPet() {
-    if (!window.BiumPet?.createForId) return;
+    if (!window.BiumPet?.create) return;
     stopWander();
-    habitatPets = [];
+    habitatSlot = null;
 
-    const dogEl = $("miniPetDog");
-    const catEl = $("miniPetCat");
-    if (!dogEl || !catEl) return;
+    const el = $("miniPet");
+    if (!el) return;
 
-    dogEl.innerHTML = "";
-    catEl.innerHTML = "";
-    dogEl.className = "mini-pet is-dog pet-atlas";
-    catEl.className = "mini-pet is-cat pet-atlas";
+    el.innerHTML = "";
+    el.removeAttribute("style");
+    el.className = "mini-pet pet-atlas";
+    el.hidden = false;
 
-    const dog = await window.BiumPet.createForId("pawpal", dogEl, dogEl);
-    const cat = await window.BiumPet.createForId("neko", catEl, catEl);
-    await Promise.all([sizePetHost(dogEl, dog), sizePetHost(catEl, cat)]);
+    // Settings에서 고른 펫 하나만 (neko | pawpal)
+    const petId = window.BiumPet.getId?.() || "pawpal";
+    pet = window.BiumPet.createForId
+      ? await window.BiumPet.createForId(petId, el, el)
+      : await window.BiumPet.create(el, el);
+    await sizePetHost(el, pet);
 
-    pet = dog;
-    const dogSlot = { id: "dog", el: dogEl, pet: dog, x: 18, y: 5, timer: null };
-    const catSlot = { id: "cat", el: catEl, pet: cat, x: 52, y: 8, timer: null };
-    placePet(dogSlot, dogSlot.x, dogSlot.y);
-    placePet(catSlot, catSlot.x, catSlot.y);
-    dog.setFacing?.("right");
-    cat.setFacing?.("left");
-    dog.setState?.("sleep");
-    cat.setState?.("sleep");
-    habitatPets = [dogSlot, catSlot];
+    habitatSlot = {
+      id: petId,
+      el,
+      pet,
+      x: 38,
+      y: 6,
+      timer: null,
+    };
+    placePet(habitatSlot, habitatSlot.x, habitatSlot.y);
+    pet.setFacing?.("right");
+    pet.setState?.("sleep");
 
     if (!locationState?.away) startWander();
   }
@@ -739,6 +735,9 @@ window.BiumMini = (() => {
         start();
         syncMiniWindowHeight();
       } else stop();
+    });
+    document.addEventListener("bium:pet", () => {
+      remountPet();
     });
     document.addEventListener("bium:scan-progress", onScanProgress);
 

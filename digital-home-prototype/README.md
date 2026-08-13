@@ -32,7 +32,7 @@ npx --yes serve -l 5173 .
 - 네이버 IMAP · 오래된 첨부  
 - 로컬 유사 사진 (Czkawka `image`)  
 - 남길 위치 **다중 선택** keep-one  
-- Mini 서식지 강아지·고양이 배회  
+- Mini 서식지 — 선택한 펫 배회  
 - 기기 수에 따른 Mini 창 높이  
 - 사내 KPI 웹: [`org-dashboard/`](./org-dashboard/)
 

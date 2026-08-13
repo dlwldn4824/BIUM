@@ -21,7 +21,7 @@ GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 - **정리 후보** — 지금 비울 수 있을 법한 용량 요약 (클릭 시 탄소·비용 추정치)
 - **새로 발견** — 중복 · 비슷한 사진 · 메일 등 발견 허브
 - **연결된 기기** — MacBook / Drive / Gmail / 네이버 등 (수에 따라 창 높이 조절)
-- **서식지** — 강아지·고양이가 방 안을 돌아다님
+- **서식지** — 설정에서 고른 펫이 방 안을 돌아다님
 - **탐색 시작** — 바탕화면 펫이 공간을 돌아다니며 스캔
 
 ---
@@ -36,7 +36,7 @@ GitHub: [dlwldn4824/BIUM](https://github.com/dlwldn4824/BIUM)
 |------|------|
 | **Cozy Home / Midnight** | 크림 톤 · 블루·블랙 모던 |
 | **노트북에서 돌아다니기** | 바탕화면 펫 on/off |
-| **Pet** | Neko / Golden Puppy (서식지에는 둘 다 배회) |
+| **Pet** | Neko(고양이) / Golden Puppy(강아지) — 서식지에 선택한 하나만 |
 | **Google 연결** | Desktop Client ID → Drive·Gmail OAuth |
 | **Gmail 정리** | 스팸 · 90일+ 안읽음 **실API** 추천 |
 | **네이버 메일** | IMAP + 앱 비밀번호 · 오래된 첨부 MD5 |

@@ -223,10 +223,6 @@ body[data-mode="home"] .mini-root {
   will-change: left, bottom;
 }
 
-.mini-pet.is-cat {
-  z-index: 3;
-}
-
 .mini-pet.gif-pet-host {
   image-rendering: auto;
   display: grid;
