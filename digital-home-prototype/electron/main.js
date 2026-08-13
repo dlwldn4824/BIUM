@@ -15,6 +15,7 @@ const { execFileSync } = require("child_process");
 const { resolveBinary } = require("./localAgent");
 const {
   runFederatedScan,
+  runTitleSimilarityScan,
   spacesFromIndex,
   ensureDevices,
   refreshLiveQuotas,
@@ -260,10 +261,14 @@ function createPanelWindow() {
     /* ignore */
   }
 
-  // Menu-bar utility: do NOT auto-open dashboard — tray click opens popover
+  // Launch directly into the menu-bar experience.
   win.once("ready-to-show", () => {
     applyWindowBackground(store.getConfig()?.theme);
     applyDisplayMode("mini");
+    positionMiniNearTray();
+    win?.show();
+    win?.focus();
+    hideDockIcon();
   });
 
   win.on("close", (e) => {
@@ -886,6 +891,10 @@ ipcMain.handle("bium:scanLocal", async (event, options = {}) => {
     const out = await runFederatedScan({ engine: "fixture", send });
     return { ...out, fallbackError: err.message };
   }
+});
+
+ipcMain.handle("bium:scanTitles", async (_event, options = {}) => {
+  return runTitleSimilarityScan(options);
 });
 
 ipcMain.handle("bium:getConnections", async () => {

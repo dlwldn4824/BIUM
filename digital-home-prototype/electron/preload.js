@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("biumDesktop", {
     return () => ipcRenderer.removeListener("bium:display-mode", handler);
   },
   scanLocal: (options) => ipcRenderer.invoke("bium:scanLocal", options || {}),
+  scanTitles: (options) =>
+    ipcRenderer.invoke("bium:scanTitles", options || {}),
   petScan: (options) => ipcRenderer.invoke("bium:petScan", options || {}),
   petVisible: (on) => ipcRenderer.invoke("bium:petVisible", on),
   getPetLocation: () => ipcRenderer.invoke("bium:getPetLocation"),

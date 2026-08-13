@@ -22,6 +22,9 @@ function stubExplain(group) {
   if (group.kind === "similar-doc" || group.kind === "similar-docs") {
     const pct = Math.round((group.similarity || 0) * 100);
     const names = (group.files || []).map((f) => f.name).filter(Boolean);
+    if (group.matchBasis === "filename") {
+      return `파일 제목이 약 ${pct}% 비슷한 ${names.length}개 후보예요. 제목만으로 같은 내용이라고 단정하지 말고 직접 비교해 보세요.`;
+    }
     const latest =
       [...(group.files || [])].sort((a, b) =>
         String(b.modified || "").localeCompare(String(a.modified || ""))

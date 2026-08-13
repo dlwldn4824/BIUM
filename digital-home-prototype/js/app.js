@@ -874,8 +874,14 @@
   function applyCandidates(candidates) {
     if (!candidates || !data) return;
     data.candidates = {
-      similarPhotos: candidates.similarPhotos || { groups: [] },
-      similarDocs: candidates.similarDocs || { groups: [] },
+      similarPhotos:
+        candidates.similarPhotos ||
+        data.candidates?.similarPhotos ||
+        { groups: [] },
+      similarDocs:
+        candidates.similarDocs ||
+        data.candidates?.similarDocs ||
+        { groups: [] },
       exact: candidates.exact || data.candidates?.exact || { groups: [] },
       coldStale:
         candidates.coldStale ||
@@ -1008,6 +1014,8 @@
       return;
     }
     const pct = Math.round((group.similarity || 0) * 100);
+    const similarityLabel =
+      group.matchBasis === "filename" ? "제목 유사도" : "본문 유사도";
     const rows = (group.files || [])
       .map(
         (f) => `
@@ -1025,7 +1033,7 @@
       <div class="util-sheet">
         <p class="util-tier-badge util-tier-review">재확인 필요</p>
         <h3 class="util-sheet-title">${escapeHtml(group.title || "비슷한 문서")}</h3>
-        <p class="util-sheet-lead">내용 유사도: <strong>${pct}%</strong></p>
+        <p class="util-sheet-lead">${similarityLabel}: <strong>${pct}%</strong></p>
         <ul class="util-find-list">${rows}</ul>
         <p class="util-sheet-note">${escapeHtml(group.reason || "완전히 같은 파일은 아니에요. 버전 파일일 가능성이 높아요.")}</p>
         ${group.explain ? `<p class="util-sheet-note">${escapeHtml(group.explain)}</p>` : ""}

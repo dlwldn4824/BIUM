@@ -69,11 +69,14 @@ function filenameSimilarity(a, b) {
  * Lightweight filename clustering for local paths (optional boost).
  * @param {Array<{ name?: string, path?: string, size?: number }>} entries
  */
-function clusterByFilename(entries, { minSimilarity = 0.8 } = {}) {
+function clusterByFilename(
+  entries,
+  { minSimilarity = 0.8, allFileTypes = false } = {}
+) {
   const candidates = [];
   for (const e of entries || []) {
     const name = e.name || path.basename(String(e.path || ""));
-    if (!/\.(pptx?|docx?|pdf|key)$/i.test(name)) continue;
+    if (!allFileTypes && !/\.(pptx?|docx?|pdf|key)$/i.test(name)) continue;
     const stem = normalizeStem(name);
     if (stem.length < 4) continue;
     candidates.push({
@@ -122,14 +125,17 @@ function clusterByFilename(entries, { minSimilarity = 0.8 } = {}) {
       id: `doc-fn-${normalizeStem(files[0].name).slice(0, 12)}`,
       kind: "similar-doc",
       confidence: "review",
-      title: `비슷한 문서 ${files.length}개`,
-      reason: `파일명 유사도 약 ${Math.round(similarity * 100)}% · 완전히 같은 파일은 아니므로 내용을 비교해 주세요.`,
+      title: allFileTypes
+        ? `제목이 비슷한 파일 ${files.length}개`
+        : `제목이 비슷한 문서 ${files.length}개`,
+      reason: `제목 유사도 약 ${Math.round(similarity * 100)}% · 같은 파일인지 내용을 확인해 주세요.`,
       similarity,
       count: files.length,
       reclaimBytes: 0,
       actions: ["compare", "gather", "keep"],
       files: files.map(({ stem, ...file }) => file),
-      source: "filename-heuristic",
+      source: "title-heuristic",
+      matchBasis: "filename",
     });
   }
   return groups;
@@ -143,11 +149,13 @@ function clusterByFilename(entries, { minSimilarity = 0.8 } = {}) {
  *   minSimilarity?: number,
  *   useEmbeddings?: boolean,
  *   maxEmbeddingDocs?: number,
+ *   allFileTypes?: boolean,
  * }} [opts]
  */
 async function build(opts = {}) {
   const heuristic = clusterByFilename(opts.entries || [], {
     minSimilarity: opts.minSimilarity ?? 0.8,
+    allFileTypes: opts.allFileTypes === true,
   });
   let contentGroups = [];
   let embedding = null;
@@ -194,10 +202,10 @@ async function build(opts = {}) {
     }));
     source = contentGroups.length
       ? nonDuplicateHeuristic.length
-        ? "tika-sbert+filename-heuristic"
+        ? "tika-sbert+title-heuristic"
         : "tika-sbert"
       : nonDuplicateHeuristic.length
-        ? "filename-heuristic"
+        ? "title-heuristic"
         : embedding?.error
           ? "embedding-fallback-empty"
           : "empty";

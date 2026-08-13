@@ -299,11 +299,48 @@ function spacesFromIndex() {
 }
 
 /**
+ * Fast local pass for the secondary CTA.
+ * Compares titles only; never loads Tika, SBERT, hashes, cloud, or mail.
+ */
+async function runTitleSimilarityScan(options = {}) {
+  const home = os.homedir();
+  const roots = options.roots || [
+    path.join(home, "Downloads"),
+    path.join(home, "Desktop"),
+    path.join(home, "Documents"),
+  ];
+  const files = await listLocalFiles({
+    roots,
+    limit: options.limit || 1200,
+  });
+  const result = await similarDocs.build({
+    entries: files,
+    preferHeuristic: true,
+    useFixture: false,
+    useEmbeddings: false,
+    allFileTypes: true,
+    minSimilarity: options.minSimilarity ?? 0.8,
+  });
+  return {
+    ok: true,
+    mode: "title-only",
+    scannedFiles: files.length,
+    groups: result.groups || [],
+    candidates: {
+      similarDocs: {
+        groups: result.groups || [],
+        source: "title-heuristic",
+      },
+    },
+  };
+}
+
+/**
  * Full federated explore — drives Desktop Pet narration via `send`.
  *
  * Priority:
  *  1) Similar photos (high reclaim density)
- *  2) Filename-similar docs (cheap)
+ *  2) Tika + SBERT similar documents (filename fallback)
  *  3) Exact hash as a cheap confirm pass (size-bucket / higher min / short budget)
  *  4) Drive · Mail · LAN join
  */
@@ -1076,6 +1113,7 @@ function stem(name) {
 
 module.exports = {
   runFederatedScan,
+  runTitleSimilarityScan,
   spacesFromIndex,
   ensureDevices,
   refreshMacDiskQuota,

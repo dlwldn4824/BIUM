@@ -34,6 +34,7 @@ class DesktopPetController {
     this.clickable = false;
     this.draggable = true;
     this._tick = null;
+    this._moveResolve = null;
     this._device = "mac";
     this._dragging = false;
     this._dragOff = { x: 0, y: 0 };
@@ -154,7 +155,7 @@ class DesktopPetController {
     return screen.getDisplayNearestPoint(point).workArea;
   }
 
-  applyBounds({ bubble = false } = {}) {
+  applyBounds({ bubble = false, clamp = true } = {}) {
     if (!this.win || this.win.isDestroyed()) return;
     const w = bubble ? BUBBLE_W : PET_W;
     const h = bubble ? BUBBLE_H : PET_H;
@@ -162,8 +163,10 @@ class DesktopPetController {
     // Keep feet near previous bottom-right of pet box
     let x = Math.round(this.x - (bubble ? BUBBLE_W - PET_W : 0));
     let y = Math.round(this.y - (bubble ? BUBBLE_H - PET_H : 0));
-    x = Math.min(Math.max(area.x, x), area.x + area.width - w);
-    y = Math.min(Math.max(area.y, y), area.y + area.height - h);
+    if (clamp) {
+      x = Math.min(Math.max(area.x, x), area.x + area.width - w);
+      y = Math.min(Math.max(area.y, y), area.y + area.height - h);
+    }
     this.x = bubble ? x + (BUBBLE_W - PET_W) : x;
     this.y = bubble ? y + (BUBBLE_H - PET_H) : y;
     this.win.setBounds({ x, y, width: w, height: h }, false);
@@ -344,6 +347,12 @@ class DesktopPetController {
     this.applyBounds({ bubble: !!this.speech });
   }
 
+  placeUnclamped(x, y) {
+    this.x = Math.round(x);
+    this.y = Math.round(y);
+    this.applyBounds({ bubble: !!this.speech, clamp: false });
+  }
+
   wait(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
@@ -353,14 +362,26 @@ class DesktopPetController {
       clearInterval(this._tick);
       this._tick = null;
     }
+    const resolve = this._moveResolve;
+    this._moveResolve = null;
+    resolve?.();
   }
 
   /**
    * Animate OS window position along X (and optional Y).
    */
-  moveBy({ dx = 0, dy = 0, step = 8, ms = 32, facing, state = "run" } = {}) {
+  moveBy({
+    dx = 0,
+    dy = 0,
+    step = 8,
+    ms = 32,
+    facing,
+    state = "run",
+    clamp = true,
+  } = {}) {
     return new Promise((resolve) => {
       this._stopMove();
+      this._moveResolve = resolve;
       if (facing) this.facing = facing;
       this.state = state;
       this.pushView();
@@ -391,10 +412,9 @@ class DesktopPetController {
             doneY = false;
           }
         }
-        this.applyBounds({ bubble: !!this.speech });
+        this.applyBounds({ bubble: !!this.speech, clamp });
         if (doneX && doneY) {
           this._stopMove();
-          resolve();
         }
       }, ms);
     });
@@ -514,7 +534,8 @@ class DesktopPetController {
             this._publishLocation("mac-local", true);
           } else if (this.visible) {
             this.setPose({
-              state: p.phase === "search" ? "search" : "run",
+              state: "run",
+              facing: "right",
               speech: p.text || "",
               clickThrough: true,
             });
@@ -532,36 +553,31 @@ class DesktopPetController {
         scanDone = true;
       });
 
-      // Short Mac pace while scanning — no multi-minute walk loop
-      const left = area.x + 36;
-      const right = area.x + area.width - PET_W - 36;
-      let towardRight = true;
-      let paces = 0;
-      while (!scanDone && this.busy && !this.abortExplore && paces < 6) {
+      // Keep running right: leave the right edge, wrap to the left, repeat.
+      const leftOutside = area.x - PET_W - 8;
+      const rightOutside = area.x + area.width + 8;
+      while (!scanDone && this.busy && !this.abortExplore) {
         if (!this.visible) {
           await this.wait(200);
           continue;
         }
-        const target = towardRight ? right : left;
+        this.setPose({
+          state: "run",
+          facing: "right",
+          speech: "",
+          clickThrough: true,
+        });
         await this.moveBy({
-          dx: target - this.x,
-          facing: towardRight ? "right" : "left",
+          dx: rightOutside - this.x,
+          facing: "right",
           state: "run",
           step: 12,
           ms: 22,
+          clamp: false,
         });
-        paces += 1;
         if (scanDone || this.abortExplore) break;
-        this.setPose({
-          state: "search",
-          speech: this.speech || "살펴보는 중...",
-        });
-        await this.wait(180);
-        towardRight = !towardRight;
-      }
-      // If scan still running, wait quietly (status updates via Mini)
-      while (!scanDone && this.busy && !this.abortExplore) {
-        await this.wait(200);
+        this.placeUnclamped(leftOutside, floorY);
+        await this.wait(24);
       }
 
       const scan = await scanPromise;

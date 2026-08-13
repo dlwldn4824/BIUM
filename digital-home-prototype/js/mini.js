@@ -32,6 +32,7 @@ window.BiumMini = (() => {
   let habitatSlot = null;
   let wanderOn = false;
   let scanning = false;
+  let titleScanning = false;
   let lastScanAt = null;
   let foundCount = 0;
   /** @type {{ location?: string, away?: boolean, exploring?: boolean, statusLine?: string, label?: string } | null} */
@@ -628,17 +629,38 @@ window.BiumMini = (() => {
     openFindings();
   }
 
-  /** Primary CTA → skip the hub and open the best candidate. */
-  function openTopFinding() {
-    if (refreshFindCount() <= 0) {
-      setStatus("🐾 아직 가져온 발견이 없어요");
-      return;
+  /** Fast secondary CTA: titles only, no Tika/SBERT/hash/cloud work. */
+  async function scanSimilarTitles() {
+    if (titleScanning || scanning) return;
+    const button = $("btnFindOpen");
+    titleScanning = true;
+    if (button) button.disabled = true;
+    setStatus("🐾 파일 제목만 빠르게 비교하는 중…");
+    try {
+      if (!window.biumDesktop?.scanTitles) {
+        setStatus("🐾 제목 탐색은 데스크톱 앱에서 사용할 수 있어요");
+        return;
+      }
+      const result = await window.biumDesktop.scanTitles({
+        minSimilarity: 0.8,
+      });
+      const groups = result?.candidates?.similarDocs?.groups || [];
+      window.BiumApp?.applyCandidates?.(result.candidates);
+      fillStats();
+      if (!groups.length) {
+        setStatus(
+          `🐾 ${Number(result?.scannedFiles || 0).toLocaleString()}개 제목을 봤지만 비슷한 파일은 없어요`
+        );
+        return;
+      }
+      setStatus(`🐾 제목이 비슷한 파일 ${groups.length}묶음을 찾았어요`);
+      window.BiumApp?.openDocReviewModal?.(groups[0].id);
+    } catch (error) {
+      setStatus(`🐾 ${error.message || "제목 탐색에 실패했어요"}`);
+    } finally {
+      titleScanning = false;
+      if (button) button.disabled = false;
     }
-    if (window.BiumApp?.openTopFinding) {
-      window.BiumApp.openTopFinding();
-      return;
-    }
-    openFindings();
   }
 
   /** "정리 후보" → carbon + social cost estimates */
@@ -766,7 +788,7 @@ window.BiumMini = (() => {
 
     $("btnMiniScan")?.addEventListener("click", () => startLiveScan());
     $("btnMiniSummon")?.addEventListener("click", () => summonHere());
-    $("btnFindOpen")?.addEventListener("click", () => openTopFinding());
+    $("btnFindOpen")?.addEventListener("click", () => scanSimilarTitles());
     $("btnMiniNewFinds")?.addEventListener("click", () => openNewFinds());
     $("btnMiniCleanable")?.addEventListener("click", () => openCleanableImpact());
     $("btnConnectSpace")?.addEventListener("click", () => openAddDeviceSheet());
