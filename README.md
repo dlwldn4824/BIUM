@@ -84,6 +84,235 @@ flowchart LR
 
 메타데이터·해시 중심 · 파일 본문은 BIUM 서버로 전송하지 않습니다.
 
+### 전체 기술 파이프라인 — 로컬 엔진 · 오픈소스 · 클라우드
+
+> 현재 런타임에는 별도 생성형 AI/임베딩 모델이 없습니다.
+> 실제 탐지는 **Czkawka의 BLAKE3·지각 해시**와 BIUM의 규칙 기반 로직이 담당합니다.
+
+```mermaid
+flowchart TB
+  USER["사용자<br/>메뉴바 Mini · Desktop Pet"] --> IPC["Electron IPC<br/>preload.js · main.js"]
+  IPC --> ORCH["Federated Orchestrator<br/>similar-first"]
+
+  subgraph LOCAL["1. 로컬 우선 탐색 — 파일 본문은 기기 밖으로 보내지 않음"]
+    direction TB
+    ROOTS["Mac 로컬 폴더<br/>Pictures · Desktop · Downloads · Documents"]
+
+    ROOTS --> PHOTO["유사 사진 우선<br/>Czkawka image"]
+    PHOTO --> PHASH["Gradient perceptual hash<br/>hash size 16 · max difference 8"]
+    PHASH --> PHOTO_GROUP["비슷한 사진 후보<br/>높은 해상도 우선 추천"]
+
+    ROOTS --> DOC["유사 문서<br/>BIUM filename heuristic"]
+    DOC --> STEM["확장자·공백·final·최종·vN 제거<br/>stem 기준 클러스터"]
+    STEM --> DOC_GROUP["비슷한 문서 후보<br/>사용자 재확인"]
+
+    ROOTS --> EXACT["Exact 싼 확정 패스<br/>512KB 이상 · 약 28초 예산"]
+    EXACT --> SIZE["크기 버킷<br/>다른 크기는 해시 생략"]
+    SIZE --> CZK["Czkawka dup<br/>디렉터리 전체에서 size-first · BLAKE3"]
+    SIZE -. "CLI 실패 시" .-> NODE["Node.js crypto fallback<br/>목록 최대 280개 · 해시 상위 220개"]
+    NODE --> CONFIRM["의심 그룹만 full-file MD5"]
+    CZK --> EXACT_GROUP["완전 동일 후보"]
+    CONFIRM --> EXACT_GROUP
+  end
+
+  ORCH --> ROOTS
+
+  subgraph DEVICE["2. 기기 간 연결"]
+    direction TB
+    LAN["BIUM LAN Peer<br/>LocalSend 방식 참고"]
+    UDP["UDP multicast 224.0.0.167:53821<br/>피어 발견"]
+    HTTP["HTTP fingerprint API<br/>size · hash · contentKey만"]
+    LAN --> UDP --> HTTP
+    WIN["Windows Peer<br/>실 LAN 또는 demo stub"]
+    HTTP --> WIN
+  end
+
+  ORCH --> LAN
+  EXACT_GROUP --> HTTP
+
+  subgraph CLOUD["3. 클라우드 · 메일 실연결"]
+    direction TB
+    GOAUTH["Google OAuth 2.0<br/>Desktop authorization code flow"]
+    DRIVE["Google Drive API<br/>metadata · size · md5Checksum"]
+    GMAIL["Gmail API readonly<br/>spam · 90일 이상 안읽음"]
+    NAVER["Naver IMAP TLS 993<br/>imapflow"]
+    ATTACH["1MB 이상 · 365일 이상 첨부<br/>크기 겹침만 MD5 · 최대 12개"]
+    GOAUTH --> DRIVE
+    GOAUTH --> GMAIL
+    NAVER --> ATTACH
+    ONEDRIVE["OneDrive<br/>현재 연결 자리만 있음 · 실 스캔 미구현"]
+  end
+
+  ORCH --> GOAUTH
+  ORCH --> NAVER
+  ORCH -. "placeholder" .-> ONEDRIVE
+
+  DRIVE --> OVERLAP["Drive와 크기가 겹치는 로컬만<br/>full MD5 · 최대 36개 · 동시 6"]
+  EXACT_GROUP --> OVERLAP
+  OVERLAP --> INDEX["통합 fingerprint index<br/>contentKey로 교차 기기 그룹화"]
+  DRIVE --> INDEX
+  HTTP --> INDEX
+  ATTACH --> INDEX
+
+  PHOTO_GROUP --> CAND["후보 우선순위<br/>1 유사 사진 · 2 유사 문서 · 3 Exact"]
+  DOC_GROUP --> CAND
+  INDEX --> CAND
+  GMAIL --> CAND
+
+  CAND --> EXPLAIN["규칙 기반 설명<br/>파일명 · 메타데이터만 사용"]
+  EXPLAIN --> HUB["Mini Findings Hub<br/>추천 확인 · 남길 위치 다중 선택"]
+  HUB --> KEEP["keepOne action"]
+  KEEP --> TRASH_LOCAL["macOS ~/.Trash"]
+  KEEP --> TRASH_DRIVE["Drive files.update<br/>trashed true"]
+
+  classDef oss fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+  classDef cloud fill:#eaf1ff,stroke:#4f6fa8,color:#29466f
+  classDef local fill:#fff4e5,stroke:#c47b2b,color:#7a4a10
+  classDef inactive fill:#f1f1f1,stroke:#999,color:#666,stroke-dasharray:5 5
+  class PHOTO,PHASH,CZK,LAN,NAVER oss
+  class ROOTS,DOC,STEM,EXACT,SIZE,NODE,CONFIRM local
+  class GOAUTH,DRIVE,GMAIL,ATTACH cloud
+  class ONEDRIVE inactive
+```
+
+#### 실제 사용 OSS와 “모델” 구분
+
+```mermaid
+flowchart LR
+  subgraph ACTIVE["현재 실제 런타임"]
+    E["Electron<br/>메뉴바 · 투명 펫 창"]
+    EB["electron-builder<br/>macOS app 패키징"]
+    C["Czkawka CLI<br/>dup + image"]
+    B["BLAKE3<br/>완전 동일 해시"]
+    P["Gradient perceptual hash<br/>유사 이미지"]
+    I["imapflow<br/>Naver IMAP"]
+    N["Node.js crypto<br/>SHA-256 · MD5 fallback"]
+    C --> B
+    C --> P
+  end
+
+  subgraph PATTERN["참고해 BIUM 코드로 이식한 패턴"]
+    L["LocalSend protocol<br/>UDP 발견 · fingerprint API"]
+    W["WindowPet<br/>투명 · always-on-top 창"]
+    O["OpenPet<br/>agent event → pet action"]
+  end
+
+  subgraph REF["참고·향후 훅 — 현재 탐지에 사용 안 함"]
+    ID["imagededup<br/>CNN / pHash 후보"]
+    T["Apache Tika<br/>문서 텍스트 추출 후보"]
+    S["Sentence Transformers<br/>문서 임베딩 후보"]
+    A["Anthropic Claude<br/>현재 API 호출 없음 · 규칙 stub"]
+  end
+
+  ACTIVE --> OUT["현재 BIUM 결과"]
+  PATTERN --> OUT
+  REF -. "향후 교체·확장" .-> OUT
+
+  classDef active fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+  classDef future fill:#f1f1f1,stroke:#999,color:#666,stroke-dasharray:5 5
+  class E,EB,C,B,P,I,N active
+  class L,W,O active
+  class ID,T,S,A future
+```
+
+| 구분 | 실제 연결/역할 | 전송 데이터 |
+|------|----------------|-------------|
+| **Mac 로컬** | Czkawka + Node fallback | 외부 전송 없음 |
+| **LAN Peer** | UDP 발견 + HTTP fingerprint API | 파일 크기·해시·contentKey, 파일 본문 제외 |
+| **Google Drive** | OAuth 2.0 + Drive API | 파일 메타데이터·`md5Checksum`; 삭제 시 `trashed=true` |
+| **Gmail** | Gmail API `readonly` | 스팸·오래된 안읽음 메타데이터/건수 |
+| **Naver Mail** | `imapflow`, TLS 993 | 오래된 대용량 첨부를 선택적으로 읽어 MD5 |
+| **OneDrive** | UI/디바이스 자리만 존재 | 실 스캔·삭제 미구현 |
+
+---
+
+## 동일 vs 유사 — 비용 · 이득
+
+BIUM은 **모든 파일을 전수 해싱하지 않습니다.**
+완전 동일(exact)과 유사(similar)는 **연산 단가**와 **정리 이득**이 반대 방향으로 갈 수 있어서, 둘을 나눠 둡니다.
+
+### Exact duplicate — 싼 확정 패스
+
+```mermaid
+flowchart TD
+  A[스캔 시작] --> B[Downloads / Desktop / Documents]
+  B --> C[512KB 미만 스킵]
+  C --> D[node_modules / .git / venv 제외]
+  D --> E[크기별 버킷]
+  E --> F{같은 크기?}
+  F -->|아니오| G[해시 생략]
+  F -->|예| H[Czkawka BLAKE3]
+  H --> I[완전 동일 그룹]
+  I --> J[Drive 크기 겹침만 MD5 ≤36]
+  J --> K[교차 기기 후보]
+
+  style A fill:#f7f0e6,stroke:#8a7263,color:#4a3428
+  style G fill:#f0f0f0,stroke:#999,color:#555
+  style I fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+  style K fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+```
+
+- 페더레이션 Exact 패스의 기본 시간 예산은 **~28초**
+- Czkawka 경로는 폴더를 직접 size-first 스캔하며 별도 파일 수 상한이 없음
+- Node fallback만 목록 **최대 280개**, 큰 파일 상위 **220개** partial SHA-256 → 의심 그룹 full MD5
+- 비싼 구간: 동일-size 그룹의 full BLAKE3 · 타임아웃 전 디스크 읽기
+
+### Similar — 연산은 더 비쌀 수 있지만 낭비 밀도↑
+
+```mermaid
+flowchart LR
+  subgraph exact [완전 동일]
+    E1[size 같음] --> E2[바이트 해시]
+    E2 --> E3[삭제 확신 높음]
+  end
+
+  subgraph similar [유사]
+    S1[이미지 디코드] --> S2[지각 해시]
+    S2 --> S3[거의 같은 사진 · export]
+    S3 --> S4[정리 이득 큼]
+  end
+
+  exact -.->|연산 단가 보통 낮음| C{효율?}
+  similar -.->|CPU는 더 들 수 있음| C
+  C -->|낭비 회수 / UX| S4
+  C -->|안전 삭제| E3
+
+  style E3 fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+  style S4 fill:#fff4e5,stroke:#c47b2b,color:#7a4a10
+```
+
+| | 완전 동일 | 유사 사진 |
+|--|--|--|
+| 핵심 | size 같으면 해시 비교 | 픽셀 → perceptual hash |
+| 스킵 | size 다르면 거의 즉시 탈락 | 이미지마다 디코드 |
+| BIUM | min 512KB · BLAKE3 | Pictures·Desktop · min 20KB · timeout ~150s |
+
+- **연산만** 보면 “유사 = 더 싸다”는 틀리기 쉬움
+- **정리 이득 / 체감**이면 유사(거의 같은 사진·최종본·압축본)가 더 효율적일 수 있음
+- 문서는 파일명 stem 클러스터로 후보를 거의 공짜로 뽑을 수 있음 (정확도는 낮음)
+
+### 권장 우선순위
+
+```mermaid
+flowchart TB
+  P1[1순위 · 비슷한 사진<br/>낭비 밀도 높음]
+  P2[2순위 · 파일명 유사 문서<br/>저비용 후보]
+  P3[3순위 · Exact hash<br/>확정 · 안전 삭제]
+
+  P1 --> P2 --> P3
+
+  style P1 fill:#fff4e5,stroke:#c47b2b,color:#7a4a10
+  style P2 fill:#f7f0e6,stroke:#8a7263,color:#4a3428
+  style P3 fill:#e8f5ef,stroke:#0f8f7b,color:#0b6f60
+```
+
+Exact는 제거하지 않습니다. **비싸게 쓰지 않고** size-bucket · min size · exclude · time budget · Drive size-overlap MD5를 유지합니다.
+
+**구현:** 페더레이션 스캔은 이미 `similar-first` 순서입니다.
+(`electron/orchestrator.js` · `scanPriority: "similar-first"`).
+
+1. 비슷한 사진 → 2. 파일명 유사 문서 → 3. Exact 확정(≥512KB · ~28s) → 4. Drive/Mail 조인
+
 ---
 
 ## 설치 (macOS)

@@ -1,5 +1,5 @@
 /**
- * Similar-document "review candidates" — filename heuristics + fixture.
+ * Similar-document "review candidates" — filename heuristics (+ optional fixture).
  * Not deletion-safe: confidence is always "review".
  * Future: Apache Tika extract → Sentence Transformers cosine similarity.
  */
@@ -73,27 +73,53 @@ function clusterByFilename(entries) {
 }
 
 /**
- * @param {{ entries?: object[], useFixture?: boolean }} [opts]
+ * @param {{
+ *   entries?: object[],
+ *   useFixture?: boolean,
+ *   preferHeuristic?: boolean,
+ * }} [opts]
  */
 async function build(opts = {}) {
-  let groups = loadFixture().map((g) => ({
-    ...g,
-    kind: "similar-doc",
-    confidence: "review",
-    actions: g.actions || ["compare", "gather", "keep"],
-  }));
-
   const heuristic = clusterByFilename(opts.entries || []);
-  // Prefer fixture for demo narrative; append heuristics that don't overlap titles
-  const titles = new Set(groups.map((g) => g.title));
-  for (const h of heuristic) {
-    if (!titles.has(h.title)) groups.push(h);
+  let groups = [];
+  let source = "skipped";
+
+  if (opts.preferHeuristic) {
+    // Cheap path: filename stems first; fixture only if nothing found & allowed
+    groups = heuristic.map((g) => ({
+      ...g,
+      kind: "similar-doc",
+      confidence: "review",
+      actions: g.actions || ["compare", "gather", "keep"],
+    }));
+    source = heuristic.length ? "filename-heuristic" : "empty";
+    if (!groups.length && opts.useFixture) {
+      groups = loadFixture().map((g) => ({
+        ...g,
+        kind: "similar-doc",
+        confidence: "review",
+        actions: g.actions || ["compare", "gather", "keep"],
+      }));
+      source = groups.length ? "fixture" : "empty";
+    }
+  } else {
+    groups = loadFixture().map((g) => ({
+      ...g,
+      kind: "similar-doc",
+      confidence: "review",
+      actions: g.actions || ["compare", "gather", "keep"],
+    }));
+    const titles = new Set(groups.map((g) => g.title));
+    for (const h of heuristic) {
+      if (!titles.has(h.title)) groups.push(h);
+    }
+    source = heuristic.length ? "fixture+heuristic" : "fixture";
   }
 
   const explained = await explainGroups(groups);
   return {
     ok: true,
-    source: heuristic.length ? "fixture+heuristic" : "fixture",
+    source,
     groups: explained,
     pile: {
       id: "similar-docs",

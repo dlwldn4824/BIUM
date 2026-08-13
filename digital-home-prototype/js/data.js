@@ -33,11 +33,11 @@ window.DigitalHomeData = {
   ],
   /** Populated when Gmail is connected */
   mailCleanup: null,
-  /** Lifecycle candidates: exact → similar → review → cold hibernate */
+  /** Lifecycle candidates: similar photos → docs → exact → cold */
   candidates: {
-    exact: { groups: [] },
     similarPhotos: { groups: [] },
     similarDocs: { groups: [] },
+    exact: { groups: [] },
     coldStale: { groups: [] },
   },
   agent: {

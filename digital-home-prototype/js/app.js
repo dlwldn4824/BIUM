@@ -874,9 +874,9 @@
   function applyCandidates(candidates) {
     if (!candidates || !data) return;
     data.candidates = {
-      exact: candidates.exact || data.candidates?.exact || { groups: [] },
       similarPhotos: candidates.similarPhotos || { groups: [] },
       similarDocs: candidates.similarDocs || { groups: [] },
+      exact: candidates.exact || data.candidates?.exact || { groups: [] },
       coldStale:
         candidates.coldStale ||
         data.candidates?.coldStale || { groups: [] },
@@ -1160,18 +1160,8 @@
       ? data.mailCleanup.groups.reduce((s, g) => s + (g.count || 0), 0)
       : 0;
 
+    // Priority: similar photos → docs → exact → cold → mail
     const options = [
-      hasDup
-        ? `
-          <button class="util-option" type="button" data-action="open-dup-find">
-            <span class="util-option-ico" aria-hidden="true">⧉</span>
-            <span class="util-option-text">
-              <strong>똑같은 파일</strong>
-              <small>내용이 같은 묶음 ${dupN}개 · 파일 ${dupFiles}개</small>
-            </span>
-            <span class="util-check" aria-hidden="true"></span>
-          </button>`
-        : "",
       hasPhotos
         ? `
           <button class="util-option is-on" type="button" data-action="open-photo-find">
@@ -1190,6 +1180,17 @@
             <span class="util-option-text">
               <strong>비슷한 문서</strong>
               <small>최종·수정본 같아요 · ${docN}개 · 같이 확인해 주세요</small>
+            </span>
+            <span class="util-check" aria-hidden="true"></span>
+          </button>`
+        : "",
+      hasDup
+        ? `
+          <button class="util-option" type="button" data-action="open-dup-find">
+            <span class="util-option-ico" aria-hidden="true">⧉</span>
+            <span class="util-option-text">
+              <strong>똑같은 파일</strong>
+              <small>내용이 같은 묶음 ${dupN}개 · 파일 ${dupFiles}개</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -2015,11 +2016,11 @@
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>
-          <button class="util-option ${petId === "pawpal" ? "is-on" : ""}" type="button" data-pet-pick="pawpal">
+          <button class="util-option ${petId === "retriever" ? "is-on" : ""}" type="button" data-pet-pick="retriever">
             <span class="util-option-ico" aria-hidden="true">🐕</span>
             <span class="util-option-text">
-              <strong>Golden Puppy</strong>
-              <small>금모 리트리버</small>
+              <strong>강아지</strong>
+              <small>하얀 금모 퍼피</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>

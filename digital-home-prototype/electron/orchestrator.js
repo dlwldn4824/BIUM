@@ -11,7 +11,7 @@
 const os = require("os");
 const path = require("path");
 const indexStore = require("./indexStore");
-const { scanLocalLibrary } = require("./scanner");
+const { scanLocalLibrary, listLocalFiles } = require("./scanner");
 const { resolveBinary, roomForPath } = require("./engines/czkawka");
 const store = require("./store");
 const agentEvents = require("./agentEvents");
@@ -300,6 +300,12 @@ function spacesFromIndex() {
 
 /**
  * Full federated explore — drives Desktop Pet narration via `send`.
+ *
+ * Priority:
+ *  1) Similar photos (high reclaim density)
+ *  2) Filename-similar docs (cheap)
+ *  3) Exact hash as a cheap confirm pass (size-bucket / higher min / short budget)
+ *  4) Drive · Mail · LAN join
  */
 async function runFederatedScan(options = {}) {
   const send = options.send;
@@ -310,17 +316,7 @@ async function runFederatedScan(options = {}) {
     phase: "start",
     agent: "mac-local",
     text: "탐색을 시작했어요",
-    progress: 4,
-  });
-
-  // ---- 1) Mac Local Agent ----
-  emit(send, {
-    phase: "walk",
-    room: "laptop",
-    agent: "mac-local",
-    label: "MacBook",
-    text: "MacBook 폴더를 살펴보는 중...",
-    progress: 8,
+    progress: 3,
   });
 
   const enginePref = options.engine || process.env.BIUM_SCAN_ENGINE || "auto";
@@ -330,20 +326,124 @@ async function runFederatedScan(options = {}) {
     (enginePref === "auto" && !hasCli && options.allowFixture !== false);
 
   const home = os.homedir();
+  const localRoots = [
+    path.join(home, "Downloads"),
+    path.join(home, "Desktop"),
+    path.join(home, "Documents"),
+  ];
+
+  const wantPhotos = options.includeSimilarPhotos !== false;
+  const wantDocs = options.includeSimilarDocs !== false;
+  const wantSimilarDemo = options.includeSimilar === true;
+
+  let photoOut = { groups: [], pile: null, reclaimBytes: 0, source: "skipped" };
+  let docOut = { groups: [], pile: null, source: "skipped" };
+  let coldOut = { groups: [], pile: null, reclaimBytes: 0, source: "skipped" };
+
+  // ---- 1) Similar photos first (waste density) ----
+  if (wantPhotos) {
+    emit(send, {
+      phase: "walk",
+      room: "laptop",
+      agent: "mac-local",
+      label: "MacBook",
+      text: "비슷한 사진부터 보는 중… (Pictures·Desktop)",
+      progress: 6,
+    });
+    try {
+      photoOut = await similarPhotos.build({
+        useFixture: false,
+        timeoutMs: options.photoTimeoutMs || 150000,
+        maxDifference: options.photoMaxDifference ?? 8,
+        maxGroups: options.photoMaxGroups ?? 24,
+      });
+      emit(send, {
+        phase: "search",
+        agent: "mac-local",
+        room: "laptop",
+        text: photoOut.groups?.length
+          ? `비슷한 사진 묶음 ${photoOut.groups.length}개`
+          : "비슷한 사진은 거의 없어요",
+        progress: 22,
+      });
+    } catch (err) {
+      emit(send, {
+        phase: "search",
+        agent: "mac-local",
+        text: `사진 유사도 스캔 건너뜀 · ${String(err.message || "").slice(0, 40)}`,
+        progress: 22,
+      });
+      photoOut = {
+        groups: [],
+        pile: null,
+        reclaimBytes: 0,
+        source: "error",
+        error: err.message,
+      };
+    }
+  }
+
+  // ---- 2) Filename-similar docs (cheap, no content hash) ----
+  let lightFiles = [];
+  if (wantDocs || wantSimilarDemo) {
+    emit(send, {
+      phase: "search",
+      agent: "mac-local",
+      room: "laptop",
+      text: "비슷한 문서 이름 훑는 중…",
+      progress: 26,
+    });
+    try {
+      lightFiles = await listLocalFiles({
+        roots: localRoots,
+        limit: options.docListLimit || 900,
+      });
+      docOut = await similarDocs.build({
+        entries: lightFiles,
+        preferHeuristic: true,
+        useFixture: wantSimilarDemo,
+      });
+      emit(send, {
+        phase: "search",
+        agent: "mac-local",
+        text: docOut.groups?.length
+          ? `비슷한 문서 후보 ${docOut.groups.length}묶음`
+          : "비슷한 문서는 거의 없어요",
+        progress: 30,
+      });
+    } catch (err) {
+      emit(send, {
+        phase: "search",
+        agent: "mac-local",
+        text: `문서 후보 건너뜀 · ${String(err.message || "").slice(0, 40)}`,
+        progress: 30,
+      });
+    }
+  }
+
+  // ---- 3) Exact duplicate — cheap confirm pass ----
+  emit(send, {
+    phase: "walk",
+    room: "laptop",
+    agent: "mac-local",
+    label: "MacBook",
+    text: "같은 파일 확정 중… (크기 먼저 · 짧은 해시)",
+    progress: 32,
+  });
+
   const localResult = await scanLocalLibrary({
     engine: useFixture ? "fixture" : enginePref,
     fixturePath: useFixture
       ? path.join(__dirname, "..", "fixtures", "czkawka-duplicates.sample.json")
       : undefined,
-    roots: [
-      path.join(home, "Downloads"),
-      path.join(home, "Desktop"),
-      path.join(home, "Documents"),
-    ],
-    timeoutMs: options.timeoutMs || 45000,
+    roots: localRoots,
+    // Short budget: size-bucket BLAKE3 only on larger files
+    timeoutMs: options.exactTimeoutMs || options.timeoutMs || 28000,
     binary: options.binary,
-    // Keep first pass snappy — deep MD5 only for Drive size overlaps later
-    limit: options.limit || 450,
+    limit: options.limit || 280,
+    exactConfirm: true,
+    minFileSize:
+      options.minFileSize != null ? options.minFileSize : 512 * 1024,
   });
 
   let macEntries = entriesFromLocalScan(localResult);
@@ -365,18 +465,18 @@ async function runFederatedScan(options = {}) {
     phase: "search",
     room: "laptop",
     agent: "mac-local",
-    text: `MacBook에서 ${macEntries.length}개 확인`,
-    progress: 35,
+    text: `같은 파일 후보 ${macEntries.length}개 확인`,
+    progress: 42,
   });
 
-  // ---- 2) LAN peer (LocalSend-inspired) or Windows stub ----
+  // ---- 4) LAN peer (LocalSend-inspired) or Windows stub ----
   emit(send, {
     phase: "transfer",
     agent: "windows-peer",
     text: "같은 네트워크 Desktop 찾는 중...",
     from: "mac-local",
     to: "windows-peer",
-    progress: 40,
+    progress: 46,
   });
 
   let peerMode = "stub";
@@ -802,7 +902,14 @@ async function runFederatedScan(options = {}) {
     progress: 92,
   });
 
-  if (primary && primary.files.length >= 2) {
+  if (photoOut.groups?.length) {
+    emit(send, {
+      phase: "found",
+      room: "laptop",
+      text: `비슷한 사진 ${photoOut.groups.length}묶음을 먼저 봤어요`,
+      progress: 94,
+    });
+  } else if (primary && primary.files.length >= 2) {
     emit(send, {
       phase: "found",
       room: primary.files[primary.files.length - 1].room || "cloud",
@@ -812,16 +919,36 @@ async function runFederatedScan(options = {}) {
     });
   }
 
-  const piles = [
-    {
-      id: "duplicates",
-      kind: "duplicate",
-      label: "중복 파일",
-      count: groups.reduce((s, g) => s + g.files.length, 0),
-      reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
-      groups,
-    },
-  ];
+  // ---- 7) Optional cold-stale demo only (docs/photos already ran early) ----
+  if (wantSimilarDemo) {
+    emit(send, {
+      phase: "search",
+      agent: "mac-local",
+      text: "오래된 폴더(데모) 보는 중...",
+      progress: 93,
+    });
+    try {
+      const stalePile =
+        localResult?.piles?.find((p) => p.id === "stale" || p.kind === "stale") ||
+        null;
+      coldOut = await coldStale.build({ useFixture: true, stalePile });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Pile order = product priority: similar photos → docs → exact → mail → cold
+  const piles = [];
+  if (photoOut.pile?.groups?.length) piles.push(photoOut.pile);
+  if (docOut.pile?.groups?.length) piles.push(docOut.pile);
+  piles.push({
+    id: "duplicates",
+    kind: "duplicate",
+    label: "중복 파일",
+    count: groups.reduce((s, g) => s + g.files.length, 0),
+    reclaimBytes: groups.reduce((s, g) => s + g.reclaimBytes, 0),
+    groups,
+  });
   if (mailCleanup?.groups?.length) {
     piles.push({
       id: "mail-cleanup",
@@ -832,86 +959,12 @@ async function runFederatedScan(options = {}) {
       groups: mailCleanup.groups,
     });
   }
-
-  // ---- 6) Similar photos (real Czkawka image) · docs/cold still optional demo
-  const wantPhotos = options.includeSimilarPhotos !== false;
-  const wantSimilarDemo = options.includeSimilar === true;
-  let photoOut = { groups: [], pile: null, reclaimBytes: 0, source: "skipped" };
-  let docOut = { groups: [], pile: null, source: "skipped" };
-  let coldOut = { groups: [], pile: null, reclaimBytes: 0, source: "skipped" };
-
-  if (wantPhotos) {
-    emit(send, {
-      phase: "search",
-      agent: "mac-local",
-      room: "laptop",
-      text: "비슷한 사진 보는 중… (Pictures·Desktop)",
-      progress: 93,
-    });
-    try {
-      photoOut = await similarPhotos.build({
-        useFixture: false,
-        timeoutMs: options.photoTimeoutMs || 150000,
-        maxDifference: options.photoMaxDifference ?? 8,
-        maxGroups: options.photoMaxGroups ?? 24,
-      });
-      if (photoOut.pile?.groups?.length) piles.push(photoOut.pile);
-      emit(send, {
-        phase: "search",
-        agent: "mac-local",
-        text: photoOut.groups?.length
-          ? `비슷한 사진 묶음 ${photoOut.groups.length}개`
-          : "비슷한 사진은 거의 없어요",
-        progress: 95,
-      });
-    } catch (err) {
-      emit(send, {
-        phase: "search",
-        agent: "mac-local",
-        text: `사진 유사도 스캔 건너뜀 · ${String(err.message || "").slice(0, 40)}`,
-        progress: 95,
-      });
-      photoOut = {
-        groups: [],
-        pile: null,
-        reclaimBytes: 0,
-        source: "error",
-        error: err.message,
-      };
-    }
-  }
-
-  if (wantSimilarDemo) {
-    emit(send, {
-      phase: "search",
-      agent: "mac-local",
-      text: "비슷한 문서·오래된 폴더(데모) 보는 중...",
-      progress: 96,
-    });
-    try {
-      docOut = await similarDocs.build({
-        useFixture: true,
-        entries: indexStore.listEntries().slice(0, 200),
-      });
-    } catch {
-      /* ignore */
-    }
-    try {
-      const stalePile =
-        localResult?.piles?.find((p) => p.id === "stale" || p.kind === "stale") ||
-        null;
-      coldOut = await coldStale.build({ useFixture: true, stalePile });
-    } catch {
-      /* ignore */
-    }
-    if (docOut.pile?.groups?.length) piles.push(docOut.pile);
-    if (coldOut.pile?.groups?.length) piles.push(coldOut.pile);
-  }
+  if (coldOut.pile?.groups?.length) piles.push(coldOut.pile);
 
   const candidates = {
-    exact: { groups },
     similarPhotos: { groups: photoOut.groups || [] },
     similarDocs: { groups: docOut.groups || [] },
+    exact: { groups },
     coldStale: { groups: coldOut.groups || [] },
   };
 
@@ -920,7 +973,11 @@ async function runFederatedScan(options = {}) {
   const photoBytes = photoOut.reclaimBytes || 0;
   const coldBytes = coldOut.reclaimBytes || 0;
   const photoReal = photoOut.source === "czkawka-image";
-  const docReal = docOut.source && docOut.source !== "fixture" && docOut.source !== "skipped";
+  const docReal =
+    docOut.source &&
+    docOut.source !== "fixture" &&
+    docOut.source !== "skipped" &&
+    docOut.source !== "empty";
   const coldReal =
     coldOut.source &&
     coldOut.source !== "fixture" &&
@@ -932,10 +989,10 @@ async function runFederatedScan(options = {}) {
     (photoReal ? photoBytes : 0) +
     (coldReal ? coldBytes : 0);
   const findCount =
-    groups.length +
-    (mailCleanup?.groups?.length ? 1 : 0) +
     (photoReal ? photoOut.groups.length : 0) +
     (docReal ? docOut.groups.length : 0) +
+    groups.length +
+    (mailCleanup?.groups?.length ? 1 : 0) +
     (coldReal ? coldOut.groups.length : 0);
   const cleanableGb = Math.round((totalReclaimBytes / 1024 ** 3) * 10) / 10;
 
@@ -950,16 +1007,20 @@ async function runFederatedScan(options = {}) {
     scannedFiles: snap.entryCount,
     driveMode,
     peerMode,
+    scanPriority: "similar-first",
   };
   indexStore.setSummary(summary);
 
   const spacesLive = spacesFromIndex();
+  const photoN = photoOut.groups?.length || 0;
   emit(send, {
     phase: "idle",
     text:
-      primary && primary.files.length >= 2
-        ? `같은 파일을 ${primary.files.length}곳에서 찾았어요`
-        : "탐색 끝 · 지금은 깨끗한 편이에요",
+      photoN > 0
+        ? `비슷한 사진 ${photoN}묶음을 먼저 찾았어요`
+        : primary && primary.files.length >= 2
+          ? `같은 파일을 ${primary.files.length}곳에서 찾았어요`
+          : "탐색 끝 · 지금은 깨끗한 편이에요",
     progress: 100,
   });
 

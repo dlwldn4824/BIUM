@@ -189,11 +189,36 @@ function buildPlanInsight(cloudBytes) {
   };
 }
 
-async function findDuplicatesNode(files) {
+async function listLocalFiles(options = {}) {
+  const home = os.homedir();
+  const roots = options.roots || [
+    path.join(home, "Downloads"),
+    path.join(home, "Desktop"),
+    path.join(home, "Documents"),
+  ];
+  const limit = options.limit || 1200;
+  const files = [];
+  for (const root of roots) {
+    try {
+      await fs.access(root);
+      await walk(root, files, limit);
+    } catch {
+      /* skip missing roots */
+    }
+  }
+  return files;
+}
+
+async function findDuplicatesNode(files, options = {}) {
+  const minSize = Math.max(
+    0,
+    options.minFileSize != null ? Number(options.minFileSize) : 256 * 1024
+  );
+  const hashCap = options.exactConfirm ? 220 : 400;
   const hashTargets = files
-    .filter((f) => f.size >= 256 * 1024)
+    .filter((f) => f.size >= minSize)
     .sort((a, b) => b.size - a.size)
-    .slice(0, 400);
+    .slice(0, hashCap);
 
   const byHash = new Map();
   for (const file of hashTargets) {
@@ -278,7 +303,12 @@ async function findDuplicates(options, files) {
         return await scanDuplicatesWithCzkawka({
           directories: options.roots,
           referenceDirectories: options.referenceDirectories,
-          minFileSize: options.minFileSize,
+          minFileSize:
+            options.minFileSize != null
+              ? options.minFileSize
+              : options.exactConfirm
+                ? 512 * 1024
+                : 256 * 1024,
           binary: options.binary,
           timeoutMs: options.timeoutMs,
           fixturePath: options.fixturePath,
@@ -290,27 +320,11 @@ async function findDuplicates(options, files) {
     }
   }
 
-  return findDuplicatesNode(files);
+  return findDuplicatesNode(files, options);
 }
 
 async function scanLocalLibrary(options = {}) {
-  const home = os.homedir();
-  const roots = options.roots || [
-    path.join(home, "Downloads"),
-    path.join(home, "Desktop"),
-    path.join(home, "Documents"),
-  ];
-  const limit = options.limit || 1200;
-
-  const files = [];
-  for (const root of roots) {
-    try {
-      await fs.access(root);
-      await walk(root, files, limit);
-    } catch {
-      // skip missing roots
-    }
-  }
+  const files = await listLocalFiles(options);
 
   const now = Date.now();
   const {
@@ -453,6 +467,7 @@ async function scanLocalLibrary(options = {}) {
 
 module.exports = {
   scanLocalLibrary,
+  listLocalFiles,
   formatBytes,
   findDuplicates,
   hashFile,
