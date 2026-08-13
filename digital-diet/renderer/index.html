@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>디지털 다이어트</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="../assets/house-128.png" alt="" class="brand-icon" />
+          <div>
+            <p class="brand-name">디지털 다이어트</p>
+            <p class="brand-sub" id="statusLine">기기·클라우드를 방으로 보는 집</p>
+          </div>
+        </div>
+        <div class="top-meta">
+          <div class="clean-pill">
+            <span>청결도</span>
+            <strong id="cleanValue">—</strong>
+          </div>
+          <button class="icon-btn" id="btnClose" aria-label="닫기">×</button>
+        </div>
+      </header>
+
+      <main id="viewHome" class="view">
+        <section class="today-bar">
+          <div>
+            <small>정리 가능</small>
+            <strong id="totalReclaim">—</strong>
+          </div>
+          <div>
+            <small>연간 절감 가능</small>
+            <strong id="savingValue">—</strong>
+          </div>
+          <div>
+            <small>중복 쓰레기</small>
+            <strong id="dupValue">—</strong>
+          </div>
+        </section>
+
+        <section class="dollhouse" aria-label="내 디지털 집">
+          <div class="roof">
+            <span>내 디지털 집</span>
+          </div>
+
+          <div class="floor upper">
+            <button class="room desktop" data-room="desktop" type="button">
+              <div class="room-label">
+                <b>데스크톱룸</b>
+                <small id="cap-desktop">256 / 512GB</small>
+              </div>
+              <div class="furniture desk-pc" aria-hidden="true"></div>
+              <div class="trash-spot" data-room="desktop"></div>
+            </button>
+
+            <button class="room laptop" data-room="laptop" type="button">
+              <div class="room-label">
+                <b>노트북룸</b>
+                <small id="cap-laptop">128 / 250GB</small>
+              </div>
+              <div class="furniture desk-laptop" aria-hidden="true"></div>
+              <div class="trash-spot" data-room="laptop"></div>
+            </button>
+          </div>
+
+          <div class="floor lower">
+            <button class="room phone" data-room="phone" type="button">
+              <div class="room-label">
+                <b>핸드폰룸</b>
+                <small id="cap-phone">64 / 128GB</small>
+              </div>
+              <div class="furniture bed" aria-hidden="true"></div>
+              <div class="trash-spot" data-room="phone"></div>
+            </button>
+
+            <button class="room cloud" data-room="cloud" type="button">
+              <div class="room-label">
+                <b>클라우드룸</b>
+                <small id="cap-cloud">Drive · OneDrive</small>
+              </div>
+              <div class="cloud-badges">
+                <span>G 78/100</span>
+                <span>O 42/100</span>
+              </div>
+              <div class="furniture sofa" aria-hidden="true"></div>
+              <div class="trash-spot" data-room="cloud"></div>
+              <div class="trash-spot second" data-room="cloud"></div>
+            </button>
+          </div>
+
+          <button class="porch" data-room="mail" type="button">
+            <div class="mailbox" aria-hidden="true"></div>
+            <div class="mascot" aria-hidden="true">☁</div>
+            <div class="porch-label">
+              <b>메일함</b>
+              <small id="cap-mail">12GB</small>
+            </div>
+            <div class="trash-spot" data-room="mail"></div>
+          </button>
+        </section>
+
+        <section class="connect-card">
+          <div class="section-head">
+            <h2>클라우드 · 메일 연결</h2>
+            <button class="linkish" id="btnSettings" type="button">Client ID 설정</button>
+          </div>
+          <div class="connect-grid">
+            <button class="connect-btn" id="btnGoogle" type="button">
+              <strong>Google</strong>
+              <small id="googleStatus">Drive + Gmail</small>
+            </button>
+            <button class="connect-btn" id="btnMicrosoft" type="button">
+              <strong>Microsoft</strong>
+              <small id="microsoftStatus">OneDrive</small>
+            </button>
+          </div>
+          <div class="actions secondary tight">
+            <button class="btn ghost" id="btnScanCloud">클라우드 스캔</button>
+          </div>
+        </section>
+
+        <section class="recommend">
+          <div class="section-head">
+            <h2>방 안 쓰레기 · 정리 추천</h2>
+            <span>봉투를 눌러 확인</span>
+          </div>
+          <ul class="waste-list" id="wasteList"></ul>
+        </section>
+
+        <section class="spaces" id="spaceList"></section>
+
+        <div class="actions">
+          <button class="btn primary" id="btnCleanAll">모두 정리하기</button>
+        </div>
+        <div class="actions secondary">
+          <button class="btn ghost" id="btnScan">로컬 스캔</button>
+          <button class="btn ghost" id="btnDemo">데모 데이터</button>
+        </div>
+      </main>
+
+      <main id="viewSettings" class="view hidden">
+        <button class="back" id="btnBackFromSettings">← 디지털 집으로</button>
+        <h1>OAuth Client ID</h1>
+        <p class="lede">
+          Google Cloud / Azure에서 Desktop 앱 Client ID를 만든 뒤 붙여넣으세요.
+          토큰은 macOS 키체인(safeStorage)으로 암호화 저장됩니다.
+        </p>
+        <label class="field">
+          <span>Google Client ID</span>
+          <input id="inputGoogleClient" type="text" placeholder="xxxx.apps.googleusercontent.com" />
+        </label>
+        <label class="field">
+          <span>Microsoft Application (Client) ID</span>
+          <input id="inputMsClient" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </label>
+        <label class="check">
+          <input id="inputRealDelete" type="checkbox" checked />
+          <span>실제 삭제 허용 (로컬=휴지통, 클라우드=API 삭제/휴지통)</span>
+        </label>
+        <div class="help-links">
+          <button class="linkish" id="linkGoogleConsole" type="button">Google Cloud Console 열기</button>
+          <button class="linkish" id="linkAzurePortal" type="button">Azure Portal 열기</button>
+        </div>
+        <p class="lede tip">
+          Google: OAuth 클라이언트 유형 <b>데스크톱 앱</b>, 리다이렉트는 루프백(http://127.0.0.1) 사용.<br />
+          Microsoft: 플랫폼 <b>모바일/데스크톱</b>, http://127.0.0.1 허용, 공개 클라이언트(PKCE) 사용.
+        </p>
+        <div class="actions sticky">
+          <button class="btn primary" id="btnSaveSettings">저장</button>
+        </div>
+      </main>
+
+      <main id="viewPile" class="view hidden">
+        <button class="back" id="btnBackHome">← 디지털 집으로</button>
+        <div class="pile-hero">
+          <div class="big-trash" aria-hidden="true"></div>
+          <div>
+            <h1 id="pileTitle">쓰레기 더미</h1>
+            <p class="lede" id="pileReason"></p>
+          </div>
+        </div>
+        <div class="gain-banner">
+          이 방의 쓰레기를 치우면 <strong id="pileGain">—</strong>
+        </div>
+        <div class="group-list" id="groupList"></div>
+        <div class="actions sticky">
+          <button class="btn primary" id="btnReview">파일 확인 후 정리</button>
+        </div>
+      </main>
+
+      <main id="viewReview" class="view hidden">
+        <button class="back" id="btnBackPile">← 뒤로</button>
+        <h1>직접 확인</h1>
+        <p class="lede" id="reviewHint">
+          선택 항목만 정리합니다. 로컬은 휴지통, Drive/OneDrive/Gmail은 실제 API로 삭제·휴지통 이동합니다.
+        </p>
+        <div class="effect-card compact">
+          <div class="effect-grid">
+            <div>
+              <span>확보 예정</span>
+              <strong id="reviewGain">—</strong>
+            </div>
+            <div>
+              <span>요금제 절감</span>
+              <strong id="reviewPlan">—</strong>
+            </div>
+          </div>
+        </div>
+        <div class="file-list" id="fileList"></div>
+        <div class="actions sticky split">
+          <button class="btn danger" id="btnDelete">실제로 치우기</button>
+          <button class="btn ghost" id="btnKeep">보관</button>
+        </div>
+      </main>
+
+      <main id="viewDone" class="view hidden">
+        <section class="done-hero">
+          <div class="mascot big">☁</div>
+          <h1>방이 깨끗해졌어요</h1>
+          <p id="doneClean">청결도 상승</p>
+        </section>
+        <section class="effect-card">
+          <h2>이번 정리 결과</h2>
+          <ul class="result-list" id="resultList"></ul>
+        </section>
+        <div class="actions">
+          <button class="btn primary" id="btnHome">디지털 집으로</button>
+        </div>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

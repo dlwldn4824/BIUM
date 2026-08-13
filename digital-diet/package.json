@@ -1,0 +1,56 @@
+{
+  "name": "digital-diet",
+  "productName": "Digital Diet",
+  "version": "0.1.0",
+  "description": "macOS 메뉴바 상주 통합 디지털 공간 정리 앱",
+  "main": "electron/main.js",
+  "author": "CHIC Hackathon",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
+    "install:local": "npm run dist && bash scripts/install-local.sh"
+  },
+  "build": {
+    "appId": "com.chic.digitaldiet",
+    "productName": "Digital Diet",
+    "copyright": "Copyright © CHIC Hackathon",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["arm64"]
+        }
+      ],
+      "extendInfo": {
+        "LSUIElement": true,
+        "CFBundleDisplayName": "디지털 다이어트",
+        "CFBundleName": "Digital Diet",
+        "NSHighResolutionCapable": true
+      }
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  }
+}

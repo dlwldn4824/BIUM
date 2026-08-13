@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Diet — My Digital Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/pixel.css?v=cozy6" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <div class="game-root" id="app">
+        <!-- ===== TOP HUD ===== -->
+        <header class="top-hud">
+          <section class="hud-box summary-box">
+            <div class="hud-box-title">오늘의 정리 요약</div>
+            <div class="summary-rows">
+              <div>
+                <span>정리 가능</span>
+                <strong id="sumCleanable">47.3GB</strong>
+              </div>
+              <div>
+                <span>비용 절감 가능</span>
+                <strong id="sumSaving">36,000원</strong>
+              </div>
+            </div>
+            <p class="mock-tag">MOCK DATA</p>
+          </section>
+
+          <section class="hud-box clean-box">
+            <div class="hud-box-title">디지털 청결도</div>
+            <div class="clean-row">
+              <strong id="overallClean">63%</strong>
+              <span class="sparkle" aria-hidden="true"></span>
+            </div>
+            <div class="pixel-bar pink" id="overallBar" style="--p:63"></div>
+            <div class="cat-status-inline" id="catStatus">
+              <span class="dot"></span>
+              <span id="catStatusText">집을 살피는 중...</span>
+            </div>
+          </section>
+
+          <section class="hud-box util-box">
+            <button class="icon-btn" id="btnHelp" type="button" title="도움말">
+              <i class="px-icon help"></i>
+              <span>도움말</span>
+            </button>
+            <button class="icon-btn" id="btnSettings" type="button" title="설정">
+              <i class="px-icon gear"></i>
+              <span>설정</span>
+            </button>
+          </section>
+        </header>
+
+        <!-- ===== MAIN BOARD ===== -->
+        <div class="main-board">
+          <!-- LEFT HUD -->
+          <aside class="side-hud left-hud" id="leftHud">
+            <section class="hud-box">
+              <div class="hud-box-title">업적</div>
+              <div class="achieve-row">
+                <i class="px-icon trophy"></i>
+                <strong id="achieveLevel">32</strong>
+              </div>
+              <div class="pixel-bar mint" style="--p:64"></div>
+            </section>
+
+            <section class="hud-box">
+              <div class="hud-box-title">이번 정리 효과</div>
+              <ul class="stat-list">
+                <li><span>확보한 공간</span><b id="fxSpace">0 GB</b></li>
+                <li><span>절감한 비용</span><b id="fxCost">0원</b></li>
+                <li><span>정리한 파일</span><b id="fxFiles">0개</b></li>
+              </ul>
+            </section>
+
+            <section class="hud-box toolbox">
+              <div class="hud-box-title">정리 도구</div>
+              <div class="tool-grid">
+                <button class="tool-btn" data-tool="duplicate" type="button">
+                  <i class="px-icon files"></i>
+                  <span>중복 찾기</span>
+                </button>
+                <button class="tool-btn" data-tool="old" type="button">
+                  <i class="px-icon box"></i>
+                  <span>오래된 파일</span>
+                </button>
+                <button class="tool-btn" data-tool="large" type="button">
+                  <i class="px-icon heavy"></i>
+                  <span>대용량 파일</span>
+                </button>
+                <button class="tool-btn" data-tool="mail" type="button">
+                  <i class="px-icon mail"></i>
+                  <span>메일 첨부</span>
+                </button>
+              </div>
+              <button class="px-btn accent full" id="btnExplore" type="button">탐색 시작</button>
+            </section>
+          </aside>
+
+          <!-- CENTER HOME -->
+          <main class="home-stage">
+            <h1 class="home-title">MY DIGITAL HOME</h1>
+
+            <div class="dollhouse" id="dollhouse">
+              <div class="roof-band" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+
+              <div class="house-grid">
+                <!-- DESKTOP -->
+                <button class="room-pane desktop" data-room="desktop" type="button" id="roomDesktop">
+                  <div class="room-stage" data-room-art="desktop">
+                    <div class="room-wall" aria-hidden="true">
+                      <div class="win"><i></i><i></i><i></i><i></i></div>
+                      <div class="poster"></div>
+                      <div class="shelf-wall"><b></b><b></b><b></b></div>
+                      <div class="lamp"></div>
+                    </div>
+                    <div class="room-floor" aria-hidden="true"></div>
+                    <div class="furn desk-set" aria-hidden="true">
+                      <div class="pc-tower"></div>
+                      <div class="mon m1"></div>
+                      <div class="mon m2"></div>
+                      <div class="desk"></div>
+                      <div class="drawer"></div>
+                      <div class="plant"></div>
+                      <div class="rug"></div>
+                    </div>
+                    <div class="clutter" data-clutter="desktop">
+                      <img src="assets/objects/old-box.png" alt="" class="clutter-img" data-item="box" />
+                      <img src="assets/objects/duplicate-files.png" alt="" class="clutter-img twin" data-item="dup" />
+                      <img src="assets/objects/prop-folder.png" alt="" class="clutter-img small" data-item="folder" />
+                      <span class="bang" hidden>!</span>
+                    </div>
+                    <div class="room-plaque">
+                      <i class="px-icon device"></i>
+                      <div>
+                        <strong>DESKTOP</strong>
+                        <span id="desktopGb">256 / 512GB</span>
+                      </div>
+                      <b id="desktopClean">54%</b>
+                    </div>
+                  </div>
+                </button>
+
+                <div class="wall-door" aria-hidden="true"><i></i><em></em></div>
+
+                <!-- LAPTOP -->
+                <button class="room-pane laptop" data-room="laptop" type="button" id="roomLaptop">
+                  <div class="room-stage" data-room-art="laptop">
+                    <div class="room-wall" aria-hidden="true">
+                      <div class="win round"><i></i><i></i><i></i><i></i></div>
+                      <div class="memo-board"><span></span><span></span><span></span></div>
+                      <div class="shelf-wall green"><b></b><b></b><b></b><b></b></div>
+                      <div class="stand-lamp"></div>
+                    </div>
+                    <div class="room-floor wood" aria-hidden="true"></div>
+                    <div class="furn laptop-set" aria-hidden="true">
+                      <div class="chair"></div>
+                      <div class="laptop"></div>
+                      <div class="desk"></div>
+                      <div class="plant tall"></div>
+                      <div class="rug oval"></div>
+                    </div>
+                    <div class="clutter" data-clutter="laptop">
+                      <img src="assets/objects/prop-folder.png" alt="" class="clutter-img" data-item="folder" />
+                      <img src="assets/objects/old-box.png" alt="" class="clutter-img dusty" data-item="dust" />
+                      <span class="bang" hidden>!</span>
+                    </div>
+                    <div class="room-plaque">
+                      <i class="px-icon device"></i>
+                      <div>
+                        <strong>LAPTOP</strong>
+                        <span id="laptopGb">128 / 250GB</span>
+                      </div>
+                      <b id="laptopClean">72%</b>
+                    </div>
+                  </div>
+                </button>
+
+                <div class="floor-beam" aria-hidden="true"></div>
+                <div class="floor-beam mid" aria-hidden="true"></div>
+
+                <!-- PHONE -->
+                <button class="room-pane phone" data-room="phone" type="button" id="roomPhone">
+                  <div class="room-stage" data-room-art="phone">
+                    <div class="room-wall" aria-hidden="true">
+                      <div class="win curtain"><i></i><i></i></div>
+                      <div class="closet"></div>
+                      <div class="night-light"></div>
+                    </div>
+                    <div class="room-floor soft" aria-hidden="true"></div>
+                    <div class="furn phone-set" aria-hidden="true">
+                      <div class="bed">
+                        <div class="pillow"></div>
+                        <div class="blanket"></div>
+                      </div>
+                      <div class="nightstand">
+                        <div class="phone-charge"></div>
+                      </div>
+                      <div class="dresser"></div>
+                      <div class="rug round"></div>
+                    </div>
+                    <div class="clutter" data-clutter="phone">
+                      <img src="assets/objects/prop-file.png" alt="" class="clutter-img small" data-item="papers" />
+                      <img src="assets/objects/prop-folder.png" alt="" class="clutter-img small" data-item="folder2" />
+                      <span class="bang" hidden>!</span>
+                    </div>
+                    <div class="room-plaque">
+                      <i class="px-icon phone"></i>
+                      <div>
+                        <strong>PHONE</strong>
+                        <span id="phoneGb">64 / 128GB</span>
+                      </div>
+                      <b id="phoneClean">81%</b>
+                    </div>
+                  </div>
+                </button>
+
+                <div class="wall-door lower" aria-hidden="true"><i></i><em></em></div>
+
+                <!-- CLOUD -->
+                <button class="room-pane cloud" data-room="cloud" type="button" id="roomCloud">
+                  <div class="room-stage" data-room-art="cloud">
+                    <div class="room-wall" aria-hidden="true">
+                      <div class="cloud-deco"><span></span><span></span><span></span></div>
+                      <div class="server-rack"></div>
+                      <div class="cabinet"></div>
+                    </div>
+                    <div class="room-floor cool" aria-hidden="true"></div>
+                    <div class="furn cloud-set" aria-hidden="true">
+                      <div class="drive-box g"><label>Drive</label></div>
+                      <div class="drive-box o"><label>One</label></div>
+                      <div class="mini-server"></div>
+                      <div class="rug tile"></div>
+                    </div>
+                    <div class="clutter" data-clutter="cloud">
+                      <img src="assets/objects/duplicate-files.png" alt="" class="clutter-img twin" data-item="cloud-dup" />
+                      <img src="assets/objects/prop-box.png" alt="" class="clutter-img" data-item="cloud-box" />
+                      <img src="assets/objects/large-file.png" alt="" class="clutter-img" data-item="cloud-large" />
+                      <span class="bang" hidden>!</span>
+                    </div>
+                    <div class="room-plaque">
+                      <i class="px-icon cloud"></i>
+                      <div>
+                        <strong>CLOUD</strong>
+                        <span>Drive 78 · One 42</span>
+                      </div>
+                      <b id="cloudClean">48%</b>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <button class="mailbox-row" data-room="mail" type="button" id="roomMail">
+                <div class="mail-scene" data-room-art="mail" aria-hidden="true">
+                  <div class="mailbox-post"></div>
+                  <div class="mailbox-body"></div>
+                  <div class="doormat"></div>
+                </div>
+                <div class="mail-copy">
+                  <strong>MAILBOX</strong>
+                  <p>입구 · Mail 12GB</p>
+                </div>
+                <div class="clutter mail" data-clutter="mail">
+                  <img src="assets/objects/mail.png" alt="" class="clutter-img" data-item="mail" />
+                  <img src="assets/objects/prop-file.png" alt="" class="clutter-img small" data-item="mail2" />
+                  <span class="bang" hidden>!</span>
+                </div>
+              </button>
+
+              <!-- Cat Agent: sprite sheet only — no CSS-drawn cat -->
+              <div class="cat-agent" id="catAgent" style="--x:22%; --y:30%" data-state="idle" data-facing="right">
+                <div class="speech" id="catSpeech">둘러볼까?</div>
+                <div class="cat-sprite" id="catSprite" role="img" aria-label="pixel cat agent"></div>
+                <div class="carry-prop" id="carryProp" hidden>
+                  <img src="assets/objects/duplicate-files.png" alt="" />
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <!-- RIGHT HUD -->
+          <aside class="side-hud right-hud" id="rightHud">
+            <section class="hud-box">
+              <div class="hud-box-title">CONNECTED SPACES</div>
+              <ul class="space-list" id="spaceList"></ul>
+            </section>
+
+            <section class="hud-box finds-box">
+              <div class="hud-box-title">고양이가 찾아왔어요</div>
+              <ul class="find-list" id="findList"></ul>
+              <div class="find-total">
+                <span>총 확인 가능 용량</span>
+                <strong id="findTotal">47.3GB</strong>
+              </div>
+              <button class="px-btn accent full" id="btnReviewOne" type="button">하나씩 확인하기</button>
+            </section>
+          </aside>
+        </div>
+
+        <!-- ===== BOTTOM NAV ===== -->
+        <nav class="bottom-nav" aria-label="main">
+          <button class="nav-item active" data-nav="home" type="button">
+            <i class="px-icon home"></i><span>홈</span>
+          </button>
+          <button class="nav-item" data-nav="report" type="button">
+            <i class="px-icon chart"></i><span>리포트</span>
+          </button>
+          <button class="nav-item" data-nav="timeline" type="button">
+            <i class="px-icon clock"></i><span>타임라인</span>
+          </button>
+          <button class="nav-item" data-nav="history" type="button">
+            <i class="px-icon book"></i><span>정리 기록</span>
+          </button>
+          <button class="nav-item" data-nav="reward" type="button">
+            <i class="px-icon star"></i><span>보상</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <div class="modal-layer hidden" id="modalLayer">
+      <div class="pixel-dialog" id="modalRoot" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/components/CatSprite.js"></script>
+    <script src="js/components/CatAgent.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+# Drop room art here:
+# desktop-room.png
+# laptop-room.png
+# phone-room.png
+# cloud-room.png
+# Then set data-has-art="true" on the matching .room-stage

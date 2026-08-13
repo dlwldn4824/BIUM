@@ -1,0 +1,34 @@
+# dependencies / envs
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# build / package
+dist/
+out/
+build/
+*.app/
+*.dmg
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# secrets
+.env
+.env.*
+!.env.example
+credentials.json
+*secret*
+
+# local debug / intermediate sprite crops (keep cat/, objects/, icons/, rooms/)
+digital-home-prototype/assets/_*.png
+digital-home-prototype/assets/preview-*.png
+digital-home-prototype/assets/cat-*.png
+digital-home-prototype/assets/prop-*.png
+!digital-home-prototype/assets/cat/
+!digital-home-prototype/assets/cat/**
