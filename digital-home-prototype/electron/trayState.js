@@ -20,11 +20,9 @@ function snapshot() {
   return { ...state };
 }
 
-function titleFor(status, foundCount) {
-  // ASCII "BIUM" is the most reliable macOS menu-bar label.
-  if (status === "scanning") return "BIUM ·";
-  if (status === "found") return `BIUM ${Math.min(Math.max(foundCount, 1), 9)}`;
-  if (status === "error") return "BIUM !";
+function titleFor(_status, _foundCount) {
+  // Keep a FIXED menu-bar title. Changing width (BIUM → BIUM 2) makes
+  // macOS reflow/hide the status item — status lives in the tooltip only.
   return "BIUM";
 }
 

@@ -27,11 +27,11 @@ window.DigitalHomeData = {
     { id: "onedrive", name: "OneDrive", used: null, total: null, icon: "cloud", connected: false },
   ],
   finds: [
-    { id: "duplicate", label: "완전 동일", icon: "⧉", gb: 0.8, count: 3 },
+    { id: "duplicate", label: "똑같은 파일", icon: "⧉", gb: 0.8, count: 3 },
     { id: "similar-photos", label: "비슷한 사진", icon: "🖼", gb: 0.04, count: 8 },
-    { id: "similar-docs", label: "비슷한 문서 (재확인)", icon: "📄", gb: 0, count: 4 },
-    { id: "cold-stale", label: "오래 안 씀 · 잠재우기", icon: "☾", gb: 36.4, count: 8291 },
-    { id: "mail", label: "스팸·오래된 안읽음", icon: "✉", gb: 2.8, count: 1630 },
+    { id: "similar-docs", label: "비슷한 문서", icon: "📄", gb: 0, count: 4 },
+    { id: "cold-stale", label: "오래 안 연 폴더", icon: "☾", gb: 36.4, count: 8291 },
+    { id: "mail", label: "메일 정리", icon: "✉", gb: 2.8, count: 1630 },
   ],
   /** Populated when Gmail is connected */
   mailCleanup: null,

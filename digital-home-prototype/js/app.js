@@ -639,7 +639,7 @@
         colds.reduce((s, g) => s + (g.reclaimBytes || 0), 0) /
         1024 ** 3
       ).toFixed(1);
-      findCold.label = "오래 안 씀 · 잠재우기";
+      findCold.label = "오래 안 연 폴더";
     }
     renderFinds();
     window.BiumMini?.fillStats?.();
@@ -789,7 +789,7 @@
     openModal(
       `
       <div class="util-sheet">
-        <p class="util-tier-badge util-tier-cold">오래 안 씀 · 잠재우기</p>
+        <p class="util-tier-badge util-tier-cold">오래 안 연 폴더</p>
         <h3 class="util-sheet-title">${escapeHtml(group.title || "오래 안 쓴 데이터")}</h3>
         <p class="util-sheet-lead">${escapeHtml(
           group.reason ||
@@ -869,8 +869,8 @@
           <button class="util-option" type="button" data-action="open-dup-find">
             <span class="util-option-ico" aria-hidden="true">⧉</span>
             <span class="util-option-text">
-              <strong>확실함 · 완전 동일</strong>
-              <small>내용이 같은 파일 ${dupN}개</small>
+              <strong>똑같은 파일</strong>
+              <small>이름만 다르고 내용이 같아요 · ${dupN}개</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -880,8 +880,8 @@
           <button class="util-option is-on" type="button" data-action="open-photo-find">
             <span class="util-option-ico" aria-hidden="true">🖼</span>
             <span class="util-option-text">
-              <strong>높은 유사도 · 비슷한 사진</strong>
-              <small>${photoN}장을 스택으로 묶었어요</small>
+              <strong>비슷한 사진</strong>
+              <small>거의 같은 컷 ${photoN}장 · 대표만 남겨볼까요</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -891,8 +891,8 @@
           <button class="util-option" type="button" data-action="open-doc-find">
             <span class="util-option-ico" aria-hidden="true">📄</span>
             <span class="util-option-text">
-              <strong>재확인 · 비슷한 문서</strong>
-              <small>버전 후보 ${docN}개 · 바로 지우지 않아요</small>
+              <strong>비슷한 문서</strong>
+              <small>최종·수정본 같아요 · ${docN}개 · 같이 확인해 주세요</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -902,8 +902,8 @@
           <button class="util-option" type="button" data-action="open-cold-find">
             <span class="util-option-ico" aria-hidden="true">☾</span>
             <span class="util-option-text">
-              <strong>라이프사이클 · 잠재우기</strong>
-              <small>${coldGb}GB · ${coldN.toLocaleString()}개 · 지우지 않고 보관</small>
+              <strong>오래 안 연 폴더</strong>
+              <small>${coldGb}GB · ${coldN.toLocaleString()}개 · 지우기 전에 잠재울 수도 있어요</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -913,8 +913,8 @@
           <button class="util-option" type="button" data-action="open-mail-find">
             <span class="util-option-ico" aria-hidden="true">✉</span>
             <span class="util-option-text">
-              <strong>메일 정리 · 추천</strong>
-              <small>스팸·오래된 안읽음 ${mailN.toLocaleString()}통</small>
+              <strong>메일 정리</strong>
+              <small>스팸·오래된 안 읽은 메일 ${mailN.toLocaleString()}통</small>
             </span>
             <span class="util-check" aria-hidden="true"></span>
           </button>`
@@ -926,8 +926,8 @@
     openModal(
       `
       <div class="util-sheet">
-        <h3 class="util-sheet-title">발견한 항목</h3>
-        <p class="util-sheet-lead">확실함 → 유사 → 재확인 → 잠재우기 순으로 골라요</p>
+        <h3 class="util-sheet-title">이거 한번 봐줄래요?</h3>
+        <p class="util-sheet-lead">확실한 것부터, 천천히 골라보면 돼요</p>
         <div class="util-options">${options}</div>
         <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
       </div>

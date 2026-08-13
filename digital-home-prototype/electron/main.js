@@ -6,9 +6,12 @@ const {
   Menu,
   screen,
   ipcMain,
+  globalShortcut,
+  Notification,
 } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 const { resolveBinary } = require("./localAgent");
 const { runFederatedScan, spacesFromIndex, ensureDevices } = require("./orchestrator");
 const { DesktopPetController } = require("./desktopPet");
@@ -366,12 +369,17 @@ function applyTrayPresentation() {
   } else if (snap.status === "error") {
     tipParts.push(snap.label || "오류");
   } else {
-    tipParts.push("메뉴바에서 열기");
+    tipParts.push("클릭해서 열기 · ⌘⇧B");
   }
-  tray.setToolTip(tipParts.join(" · "));
+  try {
+    tray.setToolTip(tipParts.join(" · "));
+  } catch {
+    /* ignore */
+  }
+  // Never change title after first paint — width changes hide the item on macOS.
   if (process.platform === "darwin") {
     try {
-      tray.setTitle(snap.title || "");
+      tray.setTitle("BIUM");
     } catch {
       /* ignore */
     }
@@ -394,6 +402,7 @@ async function summonPetHome(source = "ui") {
 }
 
 let trayListenersBound = false;
+let trayCreatedOnce = false;
 
 function destroyTray() {
   if (!tray) return;
@@ -422,62 +431,66 @@ function logTrayBounds(tag) {
   }
 }
 
-function createTray() {
-  destroyTray();
-  const icon = createTrayIcon();
-  if (icon.isEmpty()) {
-    console.error("[BIUM tray] icon empty — status item may not appear");
-  }
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
-
-  // ASCII title is the most reliable menu-bar label on macOS.
+/** macOS can persist "hidden" status items (no » — they go into Control Center). */
+function forceStatusItemVisiblePrefs() {
+  if (process.platform !== "darwin") return;
   try {
-    tray.setTitle("BIUM");
-    tray.setToolTip("BIUM · 클릭해서 열기");
-  } catch {
-    /* ignore */
-  }
-
-  // Prefer a position near the clock (higher = further left of system items).
-  try {
-    app.setAppUserModelId?.("com.chic.bium.home");
-  } catch {
-    /* ignore */
-  }
-
-  trayState.setIdle();
-  applyTrayPresentation();
-  // Force title again after state apply (idle → 비움)
-  try {
-    tray.setTitle(trayState.snapshot().title || "BIUM");
-  } catch {
-    /* ignore */
-  }
-
-  if (!trayListenersBound) {
-    trayListenersBound = true;
-    trayState.onChange(() => applyTrayPresentation());
-    petLocation.onChange(() => applyTrayPresentation());
-  }
-
-  // Left-click → toggle compact popover under menu bar
-  tray.on("click", () => {
-    if (win?.isVisible() && displayMode === "mini") win.hide();
-    else {
-      applyDisplayMode("mini");
-      win?.webContents.send("bium:display-mode", "mini");
-      showWindow();
+    // Near clock (small number). Large values slide under the notch.
+    execFileSync(
+      "defaults",
+      [
+        "write",
+        "com.chic.bium.home",
+        "NSStatusItem Preferred Position Item-0",
+        "-float",
+        "25",
+      ],
+      { stdio: "ignore" }
+    );
+    // Un-hide if macOS previously tucked the item away.
+    for (const key of [
+      "NSStatusItem Visible Item-0",
+      "NSStatusItem Visible Item-1",
+      "NSStatusItem Visible Item-2",
+    ]) {
+      execFileSync(
+        "defaults",
+        ["write", "com.chic.bium.home", key, "-bool", "true"],
+        { stdio: "ignore" }
+      );
     }
-  });
+  } catch {
+    /* ignore */
+  }
+}
 
-  // Right-click menu only — left click stays for toggle (macOS)
-  const menu = Menu.buildFromTemplate([
+function toggleMiniFromTray() {
+  if (win?.isVisible() && displayMode === "mini") win.hide();
+  else {
+    applyDisplayMode("mini");
+    win?.webContents.send("bium:display-mode", "mini");
+    showWindow();
+  }
+}
+
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
     {
       label: "열기",
+      accelerator: "CommandOrControl+Shift+B",
       click: () => {
         applyDisplayMode("mini");
         win?.webContents.send("bium:display-mode", "mini");
         showWindow();
+      },
+    },
+    {
+      label: "메뉴바에 다시 고정",
+      click: () => {
+        forceStatusItemVisiblePrefs();
+        createTray({ force: true });
+        logTrayBounds("pin-again");
+        notifyTrayHint(true);
       },
     },
     {
@@ -510,8 +523,43 @@ function createTray() {
       },
     },
   ]);
-  // On macOS, setContextMenu steals left-click. Keep menu for right-click via
-  // platform behavior: use tray.setContextMenu only on non-darwin, or bind open.
+}
+
+function createTray(opts = {}) {
+  const force = !!opts.force;
+  // Stable by default: never tear down an existing tray (causes flicker/hide).
+  if (tray && !force) {
+    applyTrayPresentation();
+    return tray;
+  }
+  if (tray) destroyTray();
+  if (force || !trayCreatedOnce) forceStatusItemVisiblePrefs();
+
+  const icon = createTrayIcon();
+  if (icon.isEmpty()) {
+    console.error("[BIUM tray] icon empty — status item may not appear");
+  }
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+  trayCreatedOnce = true;
+
+  try {
+    tray.setTitle("BIUM");
+    tray.setToolTip("BIUM · 클릭해서 열기 · ⌘⇧B");
+  } catch {
+    /* ignore */
+  }
+
+  if (!force) trayState.setIdle();
+  applyTrayPresentation();
+
+  if (!trayListenersBound) {
+    trayListenersBound = true;
+    trayState.onChange(() => applyTrayPresentation());
+    petLocation.onChange(() => applyTrayPresentation());
+  }
+
+  tray.on("click", () => toggleMiniFromTray());
+  const menu = buildTrayMenu();
   if (process.platform === "darwin") {
     tray.on("right-click", () => {
       tray.popUpContextMenu(menu);
@@ -520,7 +568,42 @@ function createTray() {
     tray.setContextMenu(menu);
   }
 
-  logTrayBounds("create");
+  logTrayBounds(force ? "force-create" : "create");
+  return tray;
+}
+
+function notifyTrayHint(forcePin = false) {
+  // Only when user asks to re-pin — launch spam makes the tray feel flaky.
+  if (!forcePin) return;
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({
+      title: "BIUM을 메뉴바에 다시 고정했어요",
+      body: "시계 옆 BIUM을 클릭하세요. 없으면 컨트롤센터를 열거나 ⌘⇧B.",
+      silent: true,
+    });
+    n.on("click", () => {
+      applyDisplayMode("mini");
+      showWindow();
+    });
+    n.show();
+  } catch {
+    /* ignore */
+  }
+}
+
+function registerTrayFallbackShortcut() {
+  try {
+    globalShortcut.unregisterAll();
+    const ok = globalShortcut.register("CommandOrControl+Shift+B", () => {
+      applyDisplayMode("mini");
+      win?.webContents.send("bium:display-mode", "mini");
+      showWindow();
+    });
+    console.log("[BIUM tray] shortcut ⌘⇧B", ok ? "ok" : "failed");
+  } catch (err) {
+    console.warn("[BIUM tray] shortcut failed", err.message);
+  }
 }
 
 function ensureTrayVisible() {
@@ -529,42 +612,21 @@ function ensureTrayVisible() {
     createTray();
     return;
   }
+  // Tooltip/title refresh only — never destroy here.
   applyTrayPresentation();
   logTrayBounds("ensure");
-  const bounds = tray.getBounds();
-  // Menu bar items report y≈0 once laid out. Zero width → recreate.
-  if (!bounds?.width) {
-    console.warn("[BIUM tray] recreating — zero width", bounds);
-    createTray();
-    logTrayBounds("recreate");
-  }
 }
 
 app.whenReady().then(() => {
   hideDockIcon();
-  // Keep status item on the RIGHT (near clock). Large preferred-position
-  // values push it left under the MacBook notch where it disappears.
-  try {
-    const { execFileSync } = require("child_process");
-    execFileSync(
-      "defaults",
-      [
-        "write",
-        "com.chic.bium.home",
-        "NSStatusItem Preferred Position Item-0",
-        "-float",
-        "40",
-      ],
-      { stdio: "ignore" }
-    );
-  } catch {
-    /* ignore */
-  }
+  forceStatusItemVisiblePrefs();
+  registerTrayFallbackShortcut();
 
+  // Create once. No later auto-recreate (that made the icon flicker/hide).
   createTray();
   createPanelWindow();
   ensureDevices();
-  // Defer pet — panel windows were logging styleMask errors and can race tray.
+
   setTimeout(() => {
     ensurePet();
     if (isDesktopPetEnabled()) {
@@ -573,13 +635,12 @@ app.whenReady().then(() => {
     } else {
       pet.setVisible(false);
     }
-    ensureTrayVisible();
+    hideDockIcon();
+    logTrayBounds("settled");
   }, 600);
 
-  hideDockIcon();
   setTimeout(hideDockIcon, 400);
-  setTimeout(ensureTrayVisible, 1500);
-  setTimeout(ensureTrayVisible, 3000);
+  setTimeout(() => logTrayBounds("settled-2"), 2000);
 
   lanPeer
     .start({ alias: osHostname() })
@@ -636,6 +697,11 @@ function osHostname() {
 app.on("second-instance", () => showWindow());
 app.on("before-quit", () => {
   isQuitting = true;
+  try {
+    globalShortcut.unregisterAll();
+  } catch {
+    /* ignore */
+  }
   try {
     lanPeer.stop();
   } catch {
