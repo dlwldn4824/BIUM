@@ -1,0 +1,36 @@
+{
+  "id": "pawpal-puppy",
+  "displayName": "Golden Puppy",
+  "type": "gif",
+  "description": "PawPal 金毛 puppy GIFs mapped to BIUM story states.",
+  "displaySize": 96,
+  "flipLeft": true,
+  "usesCarryProp": true,
+  "source": {
+    "project": "PawPal",
+    "url": "https://github.com/zebangeth/PawPal",
+    "appearance": "lovartPuppy / 金毛 puppy",
+    "codeLicense": "MIT",
+    "assetNote": "See ASSET_LICENSE.md — pet GIFs are NOT automatically MIT. Hackathon local demo; verify rights before redistribution."
+  },
+  "states": {
+    "sleep": { "src": "sleep/sleep.gif" },
+    "idle": { "src": "sleep/sleep.gif" },
+    "waiting": { "src": "sleep/sleep.gif" },
+    "walk": { "src": "run/run.gif" },
+    "run": { "src": "run/run.gif" },
+    "running-right": { "src": "run/run.gif" },
+    "running-left": { "src": "run/run.gif" },
+    "search": { "src": "search/search.gif" },
+    "found": { "src": "found/found.gif" },
+    "carry": { "src": "carry/carry-run.gif" },
+    "carry-right": { "src": "carry/carry-run.gif" },
+    "carry-left": { "src": "carry/carry-run.gif" },
+    "clean": { "src": "search/search.gif" },
+    "happy": { "src": "happy/wag.gif" },
+    "wag": { "src": "happy/wag.gif" },
+    "waving": { "src": "happy/happy.gif" },
+    "jumping": { "src": "found/found.gif" }
+  },
+  "serviceFlow": ["sleep", "run", "found", "carry", "happy"]
+}

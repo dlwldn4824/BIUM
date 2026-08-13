@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.venv/
+.venv-atlas/
+.DS_Store
+*.log
+assets/**/_*.png
+# large MIT binary — fetch with scripts/fetch-czkawka.sh / install:local
+vendor/bin/czkawka_cli

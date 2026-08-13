@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BIUM Pet</title>
+    <link rel="stylesheet" href="css/pet.css" />
+  </head>
+  <body>
+    <div class="pet-shell is-sleep" id="petShell">
+      <div class="pet-bubble" id="petBubble" hidden></div>
+      <div class="pet-zz" id="petZz" aria-hidden="true">zZ</div>
+      <div class="pet-stage">
+        <div class="pet-bang" id="petBang" hidden>!</div>
+        <div class="pet-sprite pet-atlas" id="petSprite" aria-label="desktop pet"></div>
+        <div class="pet-carry" id="petCarry" hidden aria-hidden="true">📄</div>
+      </div>
+      <div class="pet-device" id="petDevice" hidden></div>
+    </div>
+    <script src="js/petSelect.js"></script>
+    <script src="js/components/PetAtlas.js"></script>
+    <script src="js/components/GifPet.js"></script>
+    <script src="js/components/RetrieverSprite.js"></script>
+    <script src="js/petWindow.js"></script>
+  </body>
+</html>

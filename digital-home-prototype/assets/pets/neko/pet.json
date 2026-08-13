@@ -1,0 +1,171 @@
+{
+  "id": "neko",
+  "displayName": "Neko",
+  "description": "Classic oneko / Neko 8×4 × 32px sheet. Layout matches adryd325/oneko.js and crgimenes/neko.",
+  "spritesheetPath": "spritesheet.png",
+  "cellSize": 32,
+  "columns": 8,
+  "rows": 4,
+  "scale": 3,
+  "layout": "oneko",
+  "flipLeft": false,
+  "source": {
+    "project": "neko",
+    "url": "https://github.com/crgimenes/neko",
+    "asset": "assets/neko.png",
+    "layout": "https://github.com/adryd325/oneko.js",
+    "license": "BSD-2-Clause"
+  },
+  "animations": [
+    {
+      "name": "idle",
+      "ms": 280,
+      "cells": [[3, 3]]
+    },
+    {
+      "name": "alert",
+      "ms": 200,
+      "cells": [[7, 3]]
+    },
+    {
+      "name": "tired",
+      "ms": 280,
+      "cells": [[3, 2]]
+    },
+    {
+      "name": "sleep",
+      "ms": 400,
+      "cells": [[2, 0], [2, 1]]
+    },
+    {
+      "name": "scratch",
+      "ms": 140,
+      "cells": [[5, 0], [6, 0], [7, 0]]
+    },
+    {
+      "name": "walk-e",
+      "ms": 120,
+      "cells": [[3, 0], [3, 1]]
+    },
+    {
+      "name": "walk-w",
+      "ms": 120,
+      "cells": [[4, 2], [4, 3]]
+    },
+    {
+      "name": "walk-n",
+      "ms": 120,
+      "cells": [[1, 2], [1, 3]]
+    },
+    {
+      "name": "walk-s",
+      "ms": 120,
+      "cells": [[6, 3], [7, 2]]
+    },
+    {
+      "name": "walk-ne",
+      "ms": 120,
+      "cells": [[0, 2], [0, 3]]
+    },
+    {
+      "name": "walk-nw",
+      "ms": 120,
+      "cells": [[1, 0], [1, 1]]
+    },
+    {
+      "name": "walk-se",
+      "ms": 120,
+      "cells": [[5, 1], [5, 2]]
+    },
+    {
+      "name": "walk-sw",
+      "ms": 120,
+      "cells": [[5, 3], [6, 1]]
+    },
+    {
+      "name": "walk",
+      "ms": 120,
+      "cells": [[3, 0], [3, 1]]
+    },
+    {
+      "name": "running-right",
+      "ms": 120,
+      "cells": [[3, 0], [3, 1]]
+    },
+    {
+      "name": "running-left",
+      "ms": 120,
+      "cells": [[4, 2], [4, 3]]
+    },
+    {
+      "name": "search",
+      "ms": 140,
+      "cells": [[5, 0], [6, 0], [7, 0]]
+    },
+    {
+      "name": "found",
+      "ms": 200,
+      "cells": [[7, 3]]
+    },
+    {
+      "name": "carry-right",
+      "ms": 120,
+      "cells": [[3, 0], [3, 1]]
+    },
+    {
+      "name": "carry-left",
+      "ms": 120,
+      "cells": [[4, 2], [4, 3]]
+    },
+    {
+      "name": "clean",
+      "ms": 140,
+      "cells": [[5, 0], [6, 0], [7, 0]]
+    },
+    {
+      "name": "happy",
+      "ms": 140,
+      "cells": [[3, 0], [3, 1], [4, 2], [4, 3]]
+    },
+    {
+      "name": "wag",
+      "ms": 140,
+      "cells": [[3, 0], [3, 1], [4, 2], [4, 3]]
+    },
+    {
+      "name": "waiting",
+      "ms": 400,
+      "cells": [[2, 0], [2, 1]]
+    },
+    {
+      "name": "waving",
+      "ms": 160,
+      "cells": [[5, 0], [6, 0]]
+    },
+    {
+      "name": "jumping",
+      "ms": 160,
+      "cells": [[1, 2], [1, 3]]
+    }
+  ],
+  "aliases": {
+    "walk": "walk",
+    "run": "running-right",
+    "idle": "sleep",
+    "search": "search",
+    "found": "found",
+    "carry": "carry-right",
+    "happy": "wag",
+    "wag": "wag",
+    "clean": "clean",
+    "sleep": "sleep"
+  },
+  "serviceFlow": [
+    "sleep",
+    "running-right",
+    "found",
+    "carry-right",
+    "wag"
+  ]
+}
+

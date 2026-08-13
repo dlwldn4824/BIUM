@@ -16,7 +16,10 @@
   --panel: #fffaf2;
   --shadow: 2px 2px 0 rgba(139, 99, 70, 0.22);
   --px: 2px;
-  --cat: 56px; /* ~64px sheet at ~0.9x — rooms read ~5 cats tall */
+  /* Agent: classic Neko 32px cells → 96 (3× integer) */
+  --agent-native: 32px;
+  --agent-scale: 3;
+  --cat: calc(var(--agent-native) * var(--agent-scale)); /* 96 */
   --pixel: "Press Start 2P", ui-monospace, monospace;
   --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
 }
@@ -32,11 +35,15 @@ html, body {
 button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
 .hidden { display: none !important; }
 
+/* macOS mini-app titlebar drag */
+.top-hud { -webkit-app-region: drag; }
+.top-hud button, .top-hud a, .top-hud input { -webkit-app-region: no-drag; }
 .app-frame {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 16px;
+  /* Top inset clears macOS traffic lights (hiddenInset) */
+  padding: 44px 16px 16px;
   overflow: auto;
 }
 
@@ -853,44 +860,56 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   border: 2px solid var(--line-deep);
 }
 
-/* Cat — sprite sheet only */
-.cat-agent {
+/* Retriever agent — equal-size PNG frames; motion = CSS translate */
+.cat-agent,
+.agent {
   position: absolute;
   left: var(--x);
   top: var(--y);
   width: var(--cat);
+  height: var(--cat);
   transform: translate(-50%, -70%);
-  z-index: 8;
+  z-index: 12;
   transition: left 1s steps(12), top 1s steps(12);
   pointer-events: none;
 }
-.cat-sprite {
+/* Pet atlas / transparent PNG — never SVG-with-embedded-raster */
+.retriever,
+.cat-sprite,
+.agent-sprite,
+.pet-atlas {
+  display: block;
   width: var(--cat);
   height: var(--cat);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  background: url("../assets/cat/cat-sprite-sheet.png") no-repeat;
-  background-size: calc(var(--cat) * 4) calc(var(--cat) * 7);
-  filter: drop-shadow(2px 2px 0 rgba(139,99,70,.28));
+  -ms-interpolation-mode: nearest-neighbor;
+  filter: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  user-select: none;
+  pointer-events: none;
+  flex-shrink: 0;
 }
-.cat-agent[data-facing="left"] .cat-sprite { transform: scaleX(-1); }
-.cat-agent[data-state="idle"] .cat-sprite { animation: cat-idle 1s steps(4) infinite; }
-.cat-agent[data-state="walk"] .cat-sprite,
-.cat-agent[data-state="run"] .cat-sprite { animation: cat-walk .45s steps(4) infinite; }
-.cat-agent[data-state="search"] .cat-sprite { animation: cat-search .55s steps(4) infinite; }
-.cat-agent[data-state="found"] .cat-sprite { animation: cat-found .5s steps(4) infinite; }
-.cat-agent[data-state="carry"] .cat-sprite { animation: cat-carry .45s steps(4) infinite; }
-.cat-agent[data-state="clean"] .cat-sprite { animation: cat-clean .5s steps(4) infinite; }
-.cat-agent[data-state="sleep"] .cat-sprite,
-.cat-agent[data-state="happy"] .cat-sprite { animation: cat-happy .55s steps(4) infinite; }
-
-@keyframes cat-idle { from {background-position:0 0} to {background-position:calc(var(--cat) * -4) 0} }
-@keyframes cat-walk { from {background-position:0 calc(var(--cat) * -1)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -1)} }
-@keyframes cat-search { from {background-position:0 calc(var(--cat) * -2)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -2)} }
-@keyframes cat-found { from {background-position:0 calc(var(--cat) * -3)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -3)} }
-@keyframes cat-carry { from {background-position:0 calc(var(--cat) * -4)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -4)} }
-@keyframes cat-clean { from {background-position:0 calc(var(--cat) * -5)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -5)} }
-@keyframes cat-happy { from {background-position:0 calc(var(--cat) * -6)} to {background-position:calc(var(--cat) * -4) calc(var(--cat) * -6)} }
+.pet-atlas {
+  background-repeat: no-repeat;
+}
+/* Neko / GIF pets */
+.gif-pet-host {
+  display: grid;
+  place-items: end center;
+  overflow: visible;
+}
+.gif-pet-host img {
+  display: block;
+  object-fit: contain;
+  image-rendering: auto;
+}
+.agent[data-pet="pawpal-puppy"] .gif-pet-host,
+.agent[data-pet="pawpal-puppy"] {
+  width: 96px;
+  height: 96px;
+}
 
 /* game speech bubble (not browser tooltip) */
 .speech {
@@ -1029,7 +1048,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   content:"?"; position:absolute; inset:0; display:grid; place-items:center;
   font-family: var(--pixel); font-size: 8px;
 }
-.px-icon.gear::before { content:"⚙"; font-size: 10px; }
+.px-icon.gear::before { content:"⚙"; font-size: 16px; }
 .px-icon.home { background: #ffd3e0; }
 .px-icon.chart { background: #dff5d4; }
 .px-icon.clock { background: #ffe4b5; }
@@ -1092,7 +1111,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .dialog-cat {
   width: 72px; height: 72px;
   image-rendering: pixelated;
-  background: url("../assets/cat/cat-sprite-sheet.png") 0 calc(72px * -3) / calc(72px * 4) calc(72px * 7) no-repeat;
+  image-rendering: crisp-edges;
+  /* dialog thumbnail: 64 → 64 (1×) — keep integer */
+  background: url("../assets/retriever/found/found_01.png") center / 64px 64px no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 .dialog-title {
   margin: 0;
@@ -1114,6 +1137,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 }
 .file-row strong { display:block; font-size: 13px; }
 .file-row small { color: var(--muted); font-size: 12px; }
+.file-row .path-hint {
+  font-size: 10px;
+  opacity: 0.75;
+  word-break: break-all;
+}
 .match-badge {
   font-family: var(--pixel);
   font-size: 7px;

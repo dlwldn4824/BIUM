@@ -704,6 +704,7 @@ function normalizeScanToHouse(result) {
 
 async function scanLocal() {
   setLoading(true);
+  $("statusLine").textContent = "로컬 스캔 중… (Czkawka BLAKE3)";
   try {
     const result = await window.digitalDiet.scanLocal({ limit: 1200 });
     if (!result?.ok) {
@@ -717,6 +718,10 @@ async function scanLocal() {
         ...new Set(pile.groups.flatMap((g) => g.files.map((f) => f.room))),
       ],
     }));
+    const eng = result.engine?.duplicates || "node";
+    const dup = result.piles?.find((p) => p.id === "duplicates");
+    const gb = ((dup?.reclaimBytes || 0) / 1024 ** 3).toFixed(1);
+    $("statusLine").textContent = `로컬 스캔 완료 · ${eng} · 중복 확보 가능 ≈ ${gb}GB`;
     renderHome();
     showView("Home");
   } catch (error) {

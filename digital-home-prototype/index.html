@@ -10,11 +10,82 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/pixel.css?v=cozy6" />
+    <link rel="stylesheet" href="css/pixel.css?v=tray9" />
+    <link rel="stylesheet" href="css/mini.css?v=tray9" />
   </head>
-  <body>
-    <div class="app-frame">
+  <body data-mode="mini">
+    <!-- ===== TrayPopover — quiet macOS utility + pixel pet ===== -->
+    <aside class="mini-root is-home" id="miniRoot" data-view="status" aria-label="my home">
+      <header class="mini-head">
+        <div class="mini-brand">
+          <span class="mini-home-ico" aria-hidden="true">⌂</span>
+          <h1>my home</h1>
+        </div>
+        <button class="mini-settings" id="btnMiniSettings" type="button" title="설정" aria-label="설정">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" />
+            <path
+              d="M12 3.2v1.8M12 19v1.8M3.2 12H5M19 12h1.8M6.1 6.1l1.3 1.3M16.6 16.6l1.3 1.3M17.9 6.1l-1.3 1.3M7.4 16.6l-1.3 1.3"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <p class="mini-tagline" id="miniTagline">정리할 수 있는 파일이 있어요</p>
+
+      <section class="mini-habitat is-sleep" id="miniHabitat" aria-label="펫 방">
+        <div class="mini-habitat-bg" aria-hidden="true"></div>
+        <div class="mini-pet pet-atlas" id="miniPet" role="img" aria-label="desktop pet"></div>
+        <div class="mini-away" id="miniAway" hidden>
+          <div class="mini-paws" aria-hidden="true">
+            <span>🐾</span><span>🐾</span><span>🐾</span>
+          </div>
+        </div>
+      </section>
+
+      <p class="mini-status" id="miniLocStatus" aria-live="polite">🐾 집에서 쉬는 중</p>
+
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <span>정리 후보</span>
+          <strong id="miniCleanable">8.7GB</strong>
+        </div>
+        <div class="mini-stat">
+          <span>새로 발견</span>
+          <strong id="miniNewFinds" data-count="0">0건</strong>
+        </div>
+      </div>
+
+      <section class="mini-spaces-block" aria-label="연결된 기기">
+        <div class="mini-spaces-head">
+          <h2>연결된 기기</h2>
+          <button class="mini-add-space" id="btnConnectSpace" type="button">+ 기기 추가</button>
+        </div>
+        <ul class="mini-spaces" id="miniSpaceList"></ul>
+      </section>
+
+      <div class="mini-cta-wrap">
+        <button class="mini-cta" id="btnMiniScan" type="button">🐾 탐색 시작</button>
+        <button class="mini-cta mini-cta-summon" id="btnMiniSummon" type="button" hidden>
+          여기로 와!
+        </button>
+        <button class="mini-cta mini-cta-secondary" id="btnFindOpen" type="button">
+          발견한 항목 보기
+        </button>
+        <div class="mini-foot">
+          <time id="miniLastScan">아직 탐색하지 않았어요</time>
+        </div>
+      </div>
+    </aside>
+
+    <div class="app-frame" id="homeFrame">
       <div class="game-root" id="app">
+        <div class="home-mode-bar">
+          <strong>둘러보기 · 디지털 집</strong>
+          <button class="px-btn ghost" id="btnBackMini" type="button">← 디지털 공간</button>
+        </div>
         <!-- ===== TOP HUD ===== -->
         <header class="top-hud">
           <section class="hud-box summary-box">
@@ -22,7 +93,7 @@
             <div class="summary-rows">
               <div>
                 <span>정리 가능</span>
-                <strong id="sumCleanable">47.3GB</strong>
+                <strong id="sumCleanable">8.7GB</strong>
               </div>
               <div>
                 <span>비용 절감 가능</span>
@@ -41,7 +112,7 @@
             <div class="pixel-bar pink" id="overallBar" style="--p:63"></div>
             <div class="cat-status-inline" id="catStatus">
               <span class="dot"></span>
-              <span id="catStatusText">집을 살피는 중...</span>
+              <span id="catStatusText">리트리버가 집을 살피는 중...</span>
             </div>
           </section>
 
@@ -275,10 +346,15 @@
                 </div>
               </button>
 
-              <!-- Cat Agent: sprite sheet only — no CSS-drawn cat -->
-              <div class="cat-agent" id="catAgent" style="--x:22%; --y:30%" data-state="idle" data-facing="right">
-                <div class="speech" id="catSpeech">둘러볼까?</div>
-                <div class="cat-sprite" id="catSprite" role="img" aria-label="pixel cat agent"></div>
+              <!-- Agent: classic Neko (oneko 32px sheet) -->
+              <div class="cat-agent agent" id="catAgent" style="--x:22%; --y:30%" data-state="idle" data-facing="right" data-pet="neko">
+                <div class="speech" id="catSpeech">찾아볼까?</div>
+                <div
+                  class="cat-sprite agent-sprite pet-atlas"
+                  id="agentSprite"
+                  role="img"
+                  aria-label="classic neko cat agent"
+                ></div>
                 <div class="carry-prop" id="carryProp" hidden>
                   <img src="assets/objects/duplicate-files.png" alt="" />
                 </div>
@@ -294,11 +370,11 @@
             </section>
 
             <section class="hud-box finds-box">
-              <div class="hud-box-title">고양이가 찾아왔어요</div>
+              <div class="hud-box-title">리트리버가 찾아왔어요</div>
               <ul class="find-list" id="findList"></ul>
               <div class="find-total">
                 <span>총 확인 가능 용량</span>
-                <strong id="findTotal">47.3GB</strong>
+                <strong id="findTotal">8.7GB</strong>
               </div>
               <button class="px-btn accent full" id="btnReviewOne" type="button">하나씩 확인하기</button>
             </section>
@@ -330,9 +406,16 @@
       <div class="pixel-dialog" id="modalRoot" role="dialog" aria-modal="true"></div>
     </div>
 
-    <script src="js/data.js"></script>
-    <script src="js/components/CatSprite.js"></script>
-    <script src="js/components/CatAgent.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/data.js?v=cozy1"></script>
+    <script src="js/mode.js?v=cozy1"></script>
+    <script src="js/petSelect.js?v=cozy1"></script>
+    <script src="js/scan/mapCzkawka.js?v=cozy1"></script>
+    <script src="js/scan/session.js?v=cozy1"></script>
+    <script src="js/components/PetAtlas.js?v=cozy1"></script>
+    <script src="js/components/GifPet.js?v=cozy1"></script>
+    <script src="js/components/RetrieverSprite.js?v=cozy1"></script>
+    <script src="js/components/CatAgent.js?v=cozy1"></script>
+    <script src="js/mini.js?v=cozy1"></script>
+    <script src="js/app.js?v=cozy1"></script>
   </body>
 </html>

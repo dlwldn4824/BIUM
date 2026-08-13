@@ -1,0 +1,61 @@
+{
+  "id": "windowpet-xiaocat",
+  "displayName": "XiaoCat",
+  "description": "WindowPet XiaoCat shimeji sheet. Animation layout from WindowPet (MIT app); media noted as public domain in upstream readme.",
+  "spritesheetPath": "spritesheet.png",
+  "cellSize": 128,
+  "columns": 10,
+  "rows": 9,
+  "scale": 1,
+  "flipLeft": true,
+  "source": {
+    "project": "WindowPet",
+    "url": "https://github.com/SeakMengs/WindowPet",
+    "asset": "public/media/XiaoCat.png",
+    "credit": "http://space.bilibili.com/22463254/#/",
+    "mediaNote": "Upstream public/media/readme.md: images from the public domain."
+  },
+  "animations": [
+    { "name": "idle", "row": 2, "frames": 10, "ms": 160 },
+    { "name": "stand", "row": 0, "frames": 1, "ms": 280 },
+    { "name": "walk", "row": 1, "frames": 4, "ms": 120 },
+    { "name": "running-right", "row": 1, "frames": 4, "ms": 120 },
+    { "name": "running-left", "row": 1, "frames": 4, "ms": 120 },
+    { "name": "sit", "row": 2, "frames": 10, "ms": 160 },
+    { "name": "greet", "row": 3, "frames": 2, "ms": 220 },
+    { "name": "jump", "row": 4, "frames": 1, "ms": 280 },
+    { "name": "fall", "row": 5, "frames": 3, "ms": 140 },
+    { "name": "drag", "row": 6, "frames": 1, "ms": 280 },
+    { "name": "crawl", "row": 7, "frames": 8, "ms": 100 },
+    { "name": "climb", "row": 8, "frames": 8, "ms": 120 },
+    { "name": "search", "row": 7, "frames": 8, "ms": 110 },
+    { "name": "found", "row": 3, "frames": 2, "ms": 200 },
+    { "name": "carry-right", "row": 1, "frames": 4, "ms": 120 },
+    { "name": "carry-left", "row": 1, "frames": 4, "ms": 120 },
+    { "name": "clean", "row": 2, "frames": 10, "ms": 140 },
+    { "name": "happy", "row": 3, "frames": 2, "ms": 180 },
+    { "name": "sleep", "row": 2, "frames": 10, "ms": 320 },
+    { "name": "waiting", "row": 0, "frames": 1, "ms": 280 },
+    { "name": "waving", "row": 3, "frames": 2, "ms": 220 },
+    { "name": "jumping", "row": 4, "frames": 1, "ms": 280 }
+  ],
+  "aliases": {
+    "walk": "walk",
+    "run": "walk",
+    "idle": "idle",
+    "search": "search",
+    "found": "found",
+    "carry": "carry-right",
+    "happy": "happy",
+    "clean": "clean",
+    "sleep": "sleep"
+  },
+  "serviceFlow": [
+    "idle",
+    "walk",
+    "search",
+    "found",
+    "carry-right",
+    "happy"
+  ]
+}

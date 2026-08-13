@@ -4,3 +4,5 @@ node_modules/
 dist/
 out/
 *.log
+# large MIT binary — fetch with scripts/fetch-czkawka.sh
+vendor/bin/czkawka_cli

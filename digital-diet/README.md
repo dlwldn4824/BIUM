@@ -46,10 +46,29 @@ npm start
 
 자세한 발급 절차: [`docs/OAUTH_SETUP.md`](docs/OAUTH_SETUP.md)
 
+## 중복 스캔 엔진 (Czkawka)
+
+GUI는 쓰지 않고 **CLI만** 붙인다. MIT.
+
+```bash
+# macOS arm64 CLI 받기 (권장 — brew GUI 의존성 없음)
+npm run fetch:czkawka
+
+# 터미널에서 실제 스캔 확인
+npm run scan:local
+
+# 엔진 강제
+export BIUM_SCAN_ENGINE=auto   # auto | czkawka | node | fixture
+```
+
+- `auto`: `vendor/bin/czkawka_cli` 또는 `CZKAWKA_CLI`가 있으면 BLAKE3, 없으면 Node SHA 폴백  
+- 메뉴바 앱 **로컬 스캔** 버튼 → 같은 엔진  
+- 설계: 루트 [`docs/SCAN_ENGINE.md`](../docs/SCAN_ENGINE.md)
+
 ## MVP 범위
 
 - 메뉴바 상주 + 클릭 시 팝오버
 - 기기·클라우드를 방으로 시각화, 중복을 쓰레기봉투로 표시
-- 데모 데이터 / 로컬 스캔 / 클라우드 스캔
+- 데모 데이터 / 로컬 스캔(Czkawka 우선) / 클라우드 스캔
 - OAuth 토큰은 `safeStorage`로 암호화 저장
 - 실제 삭제 지원 (설정에서 끌 수 있음)

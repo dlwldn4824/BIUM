@@ -9,6 +9,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+    "fetch:czkawka": "bash scripts/fetch-czkawka.sh",
+    "scan:local": "node scripts/scan-local.js",
     "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
     "install:local": "npm run dist && bash scripts/install-local.sh"
   },
@@ -25,7 +27,12 @@
       "electron/**/*",
       "renderer/**/*",
       "assets/**/*",
+      "vendor/bin/**/*",
+      "fixtures/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "vendor/bin/**/*"
     ],
     "mac": {
       "category": "public.app-category.utilities",

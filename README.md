@@ -331,6 +331,13 @@ npx --yes serve -l 5173 .
 # http://localhost:5173
 ```
 
+에이전트 애니메이션은 OpenPets/petx 스타일 **스프라이트 atlas**  
+(`assets/pets/retriever/`)를 쓰고, 캐릭터 아트만 BIUM으로 교체한다.  
+참고·라이선스: [`docs/DESKTOP_PET_REFERENCES.md`](docs/DESKTOP_PET_REFERENCES.md)
+
+로컬 중복 탐지는 **Czkawka(MIT) 엔진만** 쓰고 GUI는 붙이지 않는다.  
+`czkawka_cli` → JSON → Retriever UI. 상세: [`docs/SCAN_ENGINE.md`](docs/SCAN_ENGINE.md)
+
 ---
 
 ## 9. 참고 링크 (발표 각주용)

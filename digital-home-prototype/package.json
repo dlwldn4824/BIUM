@@ -1,0 +1,69 @@
+{
+  "name": "bium-home",
+  "productName": "BIUM",
+  "version": "0.1.0",
+  "description": "BIUM Digital Home — macOS mini app",
+  "main": "electron/main.js",
+  "author": "CHIC Hackathon",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
+    "install:local": "npm run dist && bash scripts/install-local.sh"
+  },
+  "build": {
+    "appId": "com.chic.bium.home",
+    "productName": "BIUM",
+    "copyright": "Copyright © CHIC Hackathon",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "index.html",
+      "pet.html",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "fixtures/**/*",
+      "vendor/bin/**/*",
+      "package.json",
+      "!assets/retriever/retriever-kit.png",
+      "!assets/retriever/@2x/**/*",
+      "!assets/pets/**/*preview*",
+      "!**/.venv*/**/*",
+      "!**/_*.png"
+    ],
+    "asarUnpack": [
+      "vendor/bin/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["arm64"]
+        }
+      ],
+      "extendInfo": {
+        "CFBundleDisplayName": "BIUM",
+        "CFBundleName": "BIUM",
+        "NSHighResolutionCapable": true,
+        "LSUIElement": true
+      }
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  }
+}
