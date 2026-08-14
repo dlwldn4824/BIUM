@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("biumPet", {
+  getAppearance: () => ipcRenderer.invoke("pet:getAppearance"),
+  onAppearance: (cb) => {
+    const handler = (_e, petId) => cb(petId);
+    ipcRenderer.on("pet:appearance", handler);
+    return () => ipcRenderer.removeListener("pet:appearance", handler);
+  },
   onView: (cb) => {
     const handler = (_e, view) => cb(view);
     ipcRenderer.on("pet:view", handler);

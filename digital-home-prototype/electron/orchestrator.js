@@ -195,8 +195,18 @@ async function refreshLiveQuotas() {
         indexStore.setDeviceConnected("gdrive", true);
         indexStore.setDeviceDemo("gdrive", false);
       }
-    } catch {
-      /* keep prior */
+    } catch (err) {
+      const message = String(err?.message || err || "");
+      const quotaError = /has not been used|disabled|accessNotConfigured/i.test(
+        message
+      )
+        ? "Google Drive API를 사용 설정해 주세요"
+        : "용량을 불러오지 못했어요";
+      indexStore.setDeviceQuota("gdrive", null, null, {
+        demo: false,
+        error: quotaError,
+      });
+      indexStore.setDeviceConnected("gdrive", true);
     }
   } else {
     const g = indexStore.listDevices().find((d) => d.id === "gdrive");
@@ -204,6 +214,30 @@ async function refreshLiveQuotas() {
       // Demo link — don't show canned 78/100 as if real
       indexStore.setDeviceQuota("gdrive", null, null, { demo: true });
       indexStore.setDeviceDemo("gdrive", true);
+    }
+  }
+  if (status.naver) {
+    try {
+      const naver = require("./providers/naverImap");
+      const result = await naver.testConnection();
+      const quota = result?.storageQuota;
+      indexStore.setDeviceQuota(
+        "naver-mail",
+        quota?.usedBytes ?? null,
+        quota?.totalBytes ?? null,
+        {
+          demo: false,
+          error: quota ? null : "네이버 IMAP에서 용량 정보를 제공하지 않아요",
+        }
+      );
+      indexStore.setDeviceConnected("naver-mail", true);
+    } catch (err) {
+      console.warn("[BIUM Naver quota]", err?.message || err);
+      indexStore.setDeviceConnected("naver-mail", false);
+      indexStore.setDeviceQuota("naver-mail", null, null, {
+        demo: false,
+        error: "네이버 IMAP 연결을 확인해 주세요",
+      });
     }
   }
   return spacesFromIndex();
@@ -292,6 +326,7 @@ function spacesFromIndex() {
       totalBytes: d.totalBytes ?? null,
       connected: d.connected,
       demo: !!d.demo,
+      quotaError: d.quotaError || null,
       kind: d.kind,
       lastScanAt: d.lastScanAt,
     };

@@ -5,15 +5,25 @@
   const $ = (id) => document.getElementById(id);
   /** @type {any} */
   let pet = null;
+  let currentPetId = null;
+  let lastView = null;
   let dragging = false;
   let moved = false;
 
-  async function mount() {
+  async function mount(requestedPetId) {
     const el = $("petSprite");
     if (!el || !window.BiumPet) return;
+    const petId = requestedPetId === "neko" ? "neko" : "retriever";
+    if (pet && currentPetId === petId) return;
+    pet?.destroy?.();
     el.innerHTML = "";
+    el.removeAttribute("style");
     el.className = "pet-sprite pet-atlas";
-    pet = await window.BiumPet.create(el, el);
+    pet = window.BiumPet.createForId
+      ? await window.BiumPet.createForId(petId, el, el)
+      : await window.BiumPet.create(el, el);
+    currentPetId = petId;
+    pet.setDisplaySize?.(96);
     if (pet.size) {
       pet.size = 96;
       if (pet.img) {
@@ -25,12 +35,16 @@
       pet.atlas.scale = Math.max(1, Math.round(96 / (pet.atlas.cell || 32)));
       pet.atlas._applySize?.();
     }
-    pet.setState("sleep");
-    pet.setFacing("left");
+    if (lastView) applyView(lastView);
+    else {
+      pet.setState("sleep");
+      pet.setFacing("left");
+    }
   }
 
   function applyView(view) {
     if (!view) return;
+    lastView = view;
     const bubble = $("petBubble");
     const bang = $("petBang");
     const carry = $("petCarry");
@@ -70,6 +84,9 @@
 
   function bind() {
     window.biumPet?.onView?.(applyView);
+    window.biumPet?.onAppearance?.((petId) => {
+      mount(petId).catch(() => {});
+    });
     window.biumPet?.ready?.();
 
     const shell = $("petShell");
@@ -127,5 +144,9 @@
     shell?.addEventListener("pointercancel", endDrag);
   }
 
-  mount().then(bind);
+  (async () => {
+    const petId = await window.biumPet?.getAppearance?.();
+    await mount(petId);
+    bind();
+  })();
 })();

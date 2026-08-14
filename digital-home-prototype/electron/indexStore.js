@@ -77,6 +77,7 @@ function registerDevice(device) {
         : isNew
           ? false
           : !!prev?.demo,
+    quotaError: device.quotaError ?? prev?.quotaError ?? null,
     lastScanAt: device.lastScanAt ?? prev?.lastScanAt ?? null,
   };
   save();
@@ -89,6 +90,7 @@ function setDeviceQuota(deviceId, usedBytes, totalBytes, opts = {}) {
   mem.devices[deviceId].usedBytes = usedBytes;
   mem.devices[deviceId].totalBytes = totalBytes;
   if (opts.demo !== undefined) mem.devices[deviceId].demo = !!opts.demo;
+  mem.devices[deviceId].quotaError = opts.error || null;
   save();
 }
 

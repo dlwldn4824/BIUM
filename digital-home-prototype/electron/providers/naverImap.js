@@ -4,6 +4,8 @@
  * Cloud Outbound Mailer is NOT used (send-only SaaS, not personal mailbox).
  */
 const crypto = require("crypto");
+const tls = require("tls");
+const { execFileSync } = require("child_process");
 const store = require("../store");
 
 const HOST = "imap.naver.com";
@@ -12,6 +14,33 @@ const MIN_ATTACH_BYTES = 1 * 1024 * 1024; // 1MB+
 const DEFAULT_OLDER_DAYS = 365;
 const MAX_MAILS = 80;
 const MAX_MD5 = 12;
+let trustedCas = null;
+
+function systemTrustedCas() {
+  if (trustedCas) return trustedCas;
+  trustedCas = [...tls.rootCertificates];
+  if (process.platform !== "darwin") return trustedCas;
+  try {
+    const pem = execFileSync(
+      "security",
+      [
+        "find-certificate",
+        "-a",
+        "-p",
+        "/Library/Keychains/System.keychain",
+      ],
+      { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 }
+    );
+    trustedCas.push(
+      ...(pem.match(
+        /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g
+      ) || [])
+    );
+  } catch {
+    /* Built-in Node roots still apply */
+  }
+  return trustedCas;
+}
 
 function getCredentials() {
   const token = store.getToken("naver");
@@ -59,7 +88,9 @@ async function withClient(fn) {
     secure: true,
     auth: { user: creds.email, pass: creds.appPassword },
     logger: false,
-    tls: { rejectUnauthorized: true },
+    // Match macOS trust without disabling certificate verification. This also
+    // supports locally trusted TLS inspection certificates (for example Avast).
+    tls: { rejectUnauthorized: true, ca: systemTrustedCas() },
   });
 
   await client.connect();
@@ -84,7 +115,25 @@ async function testConnection() {
     const lock = await client.getMailboxLock("INBOX");
     try {
       const exists = client.mailbox?.exists || 0;
-      return { ok: true, exists, email: getCredentials()?.email };
+      let storageQuota = null;
+      try {
+        const quota = await client.getQuota("INBOX");
+        const storage = quota && quota.storage;
+        if (storage && Number(storage.limit) > 0) {
+          storageQuota = {
+            usedBytes: Number(storage.used ?? storage.usage) || 0,
+            totalBytes: Number(storage.limit) || 0,
+          };
+        }
+      } catch {
+        /* Naver may not advertise the IMAP QUOTA extension */
+      }
+      return {
+        ok: true,
+        exists,
+        email: getCredentials()?.email,
+        storageQuota,
+      };
     } finally {
       lock.release();
     }

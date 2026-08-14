@@ -365,8 +365,14 @@ window.BiumMini = (() => {
         const totalLabel =
           total >= 1000 ? `${fmtGb(total / 1024)} TB` : `${fmtGb(total)} GB`;
         let size;
+        const quotaTitle = s.quotaError || "";
         if (s.demo && s.connected) size = "데모";
         else if (on) size = `${fmtGb(used)} / ${totalLabel}`;
+        else if (s.connected && /Drive API/i.test(quotaTitle))
+          size = "Drive API 필요";
+        else if (s.connected && /제공하지 않아요/i.test(quotaTitle))
+          size = "용량 조회 미지원";
+        else if (s.connected && quotaTitle) size = "용량 조회 실패";
         else if (s.connected) size = "연결됨";
         else size = "연결 안 됨";
         const bar = BAR_COLOR[s.id] || "#7ecb8f";
@@ -379,7 +385,7 @@ window.BiumMini = (() => {
             <span class="name">${name}</span>
             <span class="bar" style="--bar:${bar}"><i style="--p:${pct}"></i></span>
           </span>
-          <span class="size">${size}</span>
+          <span class="size" title="${quotaTitle}">${size}</span>
         </li>`;
       })
       .join("");
@@ -397,6 +403,7 @@ window.BiumMini = (() => {
           total: s.total,
           connected: s.connected,
           demo: !!s.demo,
+          quotaError: s.quotaError || null,
           icon:
             s.kind === "mail"
               ? "mail"

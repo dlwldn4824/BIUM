@@ -1343,7 +1343,7 @@
           const res = await window.biumDesktop?.connectSpace?.(id);
           window.BiumMini?.fillStats?.();
 
-          if (res?.needClientId) {
+          if (res?.needClientId || res?.needClientSecret) {
             window.BiumMini?.setAgent?.(
               `🐾 ${res.error || "Google Client ID가 필요해요"}`
             );
@@ -1577,7 +1577,7 @@
             "🐾 Gmail 권한을 확인하는 중… 브라우저 로그인이 열릴 수 있어요"
           );
           const res = await window.biumDesktop?.connectSpace?.("gmail");
-          if (res?.needClientId) {
+          if (res?.needClientId || res?.needClientSecret) {
             window.BiumMini?.setAgent?.(
               `🐾 ${res.error || "Google Client ID가 필요해요"}`
             );
@@ -1607,14 +1607,17 @@
     if (action === "clear-google-client") {
       (async () => {
         try {
-          await window.biumDesktop?.setConfig?.({ googleClientId: "" });
+          await window.biumDesktop?.setConfig?.({
+            googleClientId: "",
+            googleClientSecret: "",
+          });
           try {
             await window.biumDesktop?.disconnectSpace?.("gdrive");
           } catch {
             /* ignore */
           }
           window.BiumMini?.setAgent?.(
-            "🐾 Client ID를 지웠어요. Drive는 데모로 연결돼요"
+            "🐾 Google OAuth 정보를 지웠어요. Drive는 데모로 연결돼요"
           );
           closeModal();
         } catch (err) {
@@ -1626,45 +1629,44 @@
       return;
     }
     if (action === "save-google-client") {
-      const input = $("googleClientIdInput");
-      const id = (input?.value || "").trim();
-      const keepExisting = input?.dataset?.keepExisting === "1";
+      const idInput = $("googleClientIdInput");
+      const secretInput = $("googleClientSecretInput");
+      const id = (idInput?.value || "").trim();
+      const secret = (secretInput?.value || "").trim();
+      const keepExistingId = idInput?.dataset?.keepExisting === "1";
+      const keepExistingSecret =
+        secretInput?.dataset?.keepExisting === "1";
       (async () => {
         try {
-          // Empty field + already saved → keep secret, just start login
-          if (!id && keepExisting) {
-            closeModal();
-            window.BiumMini?.setAgent?.(
-              "🐾 저장된 Client ID로 Google 로그인을 열어요"
-            );
-            try {
-              await window.biumDesktop?.disconnectSpace?.("gdrive");
-            } catch {
-              /* ignore */
-            }
-            const res = await window.biumDesktop?.connectSpace?.("gdrive");
-            window.BiumMini?.setAgent?.(
-              res?.ok === false
-                ? `🐾 ${res.error || "Google 로그인을 시작하지 못했어요"}`
-                : `🐾 ${res?.message || "Google Drive를 연결했어요"}`
-            );
-            window.BiumMini?.fillStats?.();
-            return;
-          }
-          if (!id) {
+          if (!id && !keepExistingId) {
             window.BiumMini?.setAgent?.(
               "🐾 Client ID를 붙여넣은 뒤 저장해 주세요"
             );
             return;
           }
-          await window.biumDesktop?.setConfig?.({ googleClientId: id });
-          if (input) {
-            input.value = "";
-            input.dataset.keepExisting = "1";
+          if (!secret && !keepExistingSecret) {
+            window.BiumMini?.setAgent?.(
+              "🐾 Desktop OAuth Client Secret도 붙여넣어 주세요"
+            );
+            return;
+          }
+          const nextConfig = {};
+          if (id) nextConfig.googleClientId = id;
+          if (secret) nextConfig.googleClientSecret = secret;
+          if (Object.keys(nextConfig).length) {
+            await window.biumDesktop?.setConfig?.(nextConfig);
+          }
+          if (idInput) {
+            idInput.value = "";
+            idInput.dataset.keepExisting = "1";
+          }
+          if (secretInput) {
+            secretInput.value = "";
+            secretInput.dataset.keepExisting = "1";
           }
           closeModal();
           window.BiumMini?.setAgent?.(
-            "🐾 저장했어요. Google 로그인 창에서 Drive 권한을 승인해 주세요"
+            "🐾 OAuth 정보를 저장했어요. Google 로그인 창에서 권한을 승인해 주세요"
           );
           try {
             await window.biumDesktop?.disconnectSpace?.("gdrive");
@@ -1935,10 +1937,12 @@
 
   async function openGoogleClientSettings() {
     let hasId = false;
+    let hasSecret = false;
     let hint = "";
     try {
       const cfg = await window.biumDesktop?.getConfig?.();
       hasId = !!cfg?.hasGoogleClientId;
+      hasSecret = !!cfg?.hasGoogleClientSecret;
       hint = cfg?.googleClientIdHint || "";
     } catch {
       /* browser prototype */
@@ -1947,12 +1951,15 @@
       `
       <div class="util-sheet">
         <h3 class="util-sheet-title">Google Drive 연결</h3>
-        <p class="util-sheet-lead">${hasId ? "저장된 Client ID로 로그인" : "Client ID 입력 후 로그인"}</p>
+        <p class="util-sheet-lead">${hasId && hasSecret ? "저장된 OAuth 정보로 로그인" : "Desktop OAuth 정보 입력 후 로그인"}</p>
         <p class="util-sheet-note">${
-          hasId
-            ? `저장됨 · <span class="util-secret">${escapeHtml(hint)}</span> · 전체 값은 화면에 다시 보이지 않아요.`
-            : "Google Cloud Console의 Desktop Client ID만 붙여넣으세요. 저장 후엔 마스킹돼요."
+          hasId && hasSecret
+            ? `ID 저장됨 · <span class="util-secret">${escapeHtml(hint)}</span> · Secret도 암호화되어 있어요.`
+            : hasId
+              ? `ID 저장됨 · <span class="util-secret">${escapeHtml(hint)}</span> · 아래에 Client Secret을 추가해 주세요.`
+              : "Google Cloud Console의 Desktop 앱 Client ID와 Client Secret을 붙여넣으세요."
         }</p>
+        <p class="util-sheet-note">Client ID</p>
         <input
           class="util-input"
           id="googleClientIdInput"
@@ -1963,13 +1970,27 @@
           placeholder="${hasId ? "바꾸려면 새 Client ID 붙여넣기" : "xxxx.apps.googleusercontent.com"}"
           value=""
         />
+        <p class="util-sheet-note">Client Secret</p>
+        <input
+          class="util-input"
+          id="googleClientSecretInput"
+          type="password"
+          spellcheck="false"
+          autocomplete="new-password"
+          data-keep-existing="${hasSecret ? "1" : "0"}"
+          placeholder="${hasSecret ? "저장됨 · 바꾸려면 새 Secret 붙여넣기" : "GOCSPX-..."}"
+          value=""
+        />
         ${googleSignInButton({
           action: "save-google-client",
-          label: hasId ? "Google로 로그인" : "저장하고 Google로 로그인",
+          label:
+            hasId && hasSecret
+              ? "Google로 로그인"
+              : "저장하고 Google로 로그인",
         })}
         ${
-          hasId
-            ? `<button class="util-sheet-ghost" data-action="clear-google-client" type="button">Client ID 삭제</button>`
+          hasId || hasSecret
+            ? `<button class="util-sheet-ghost" data-action="clear-google-client" type="button">OAuth 정보 삭제</button>`
             : ""
         }
         <button class="util-sheet-ghost" data-action="close" type="button">닫기</button>
@@ -2234,6 +2255,9 @@
 
   async function boot() {
     await loadTheme();
+    await window.biumDesktop?.setConfig?.({
+      petId: window.BiumPet?.getId?.() || "retriever",
+    });
     renderSpaces();
     renderFinds();
     renderHud();
@@ -2265,7 +2289,10 @@
       }
     });
 
-    document.addEventListener("bium:pet", async () => {
+    document.addEventListener("bium:pet", async (e) => {
+      await window.biumDesktop?.setConfig?.({
+        petId: e.detail?.petId || window.BiumPet?.getId?.() || "retriever",
+      });
       const wasHome = window.BiumMode?.getMode() === "home";
       stopTour();
       await mountHomePet();

@@ -8,6 +8,7 @@ const {
   ipcMain,
   globalShortcut,
   Notification,
+  powerMonitor,
 } = require("electron");
 const fs = require("fs");
 const path = require("path");
@@ -126,24 +127,32 @@ function broadcast(channel, payload) {
 function createTrayIcon() {
   // Prefer black+alpha *Template.png (macOS tints it for light/dark menu bars).
   const candidates = [
+    assetFile("assets", "icons", "house.png"),
+    assetFile("assets", "icons", "house-tray.svg"),
     assetFile("assets", "icons", "trayTemplate.png"),
     assetFile("assets", "icons", "tray.png"),
     root("build", "trayTemplate.png"),
     root("build", "tray.png"),
-    assetFile("assets", "icons", "house.png"),
   ];
 
   for (const file of candidates) {
     try {
       if (!fs.existsSync(file)) continue;
       // Path load picks up trayTemplate@2x.png on Retina; buffer is asar fallback.
-      let image = nativeImage.createFromPath(file);
+      let image =
+        path.extname(file).toLowerCase() === ".svg"
+          ? nativeImage.createFromDataURL(
+              `data:image/svg+xml;base64,${fs.readFileSync(file).toString("base64")}`
+            )
+          : nativeImage.createFromPath(file);
       if (image.isEmpty()) {
         image = nativeImage.createFromBuffer(fs.readFileSync(file));
       }
       if (image.isEmpty()) continue;
 
-      const isTemplate = /Template/i.test(path.basename(file));
+      const isTemplate =
+        /Template/i.test(path.basename(file)) ||
+        path.basename(file) === "house-tray.svg";
       if (isTemplate) image.setTemplateImage(true);
 
       const size = image.getSize();
@@ -151,12 +160,24 @@ function createTrayIcon() {
         image = image.resize({ width: 18, height: 18, quality: "best" });
         if (isTemplate) image.setTemplateImage(true);
       }
+      console.log("[BIUM tray] icon", file);
       return image;
     } catch {
       /* skip */
     }
   }
-  return nativeImage.createEmpty();
+  // Always provide a compact monochrome status icon. A text-only item is wide
+  // enough to be pushed behind the MacBook notch when the menu bar is crowded.
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">',
+    '<path fill="#000" d="M9 2 2.5 7.2V16h4.2v-5h4.6v5h4.2V7.2L9 2Zm0 2.2 4.5 3.6V14h-.8V9.5H5.3V14h-.8V7.8L9 4.2Z"/>',
+    "</svg>",
+  ].join("");
+  const fallback = nativeImage.createFromDataURL(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  );
+  fallback.setTemplateImage(true);
+  return fallback;
 }
 
 function positionMiniNearTray() {
@@ -298,6 +319,7 @@ function ensurePet() {
       root,
       onAlertClick: () => openFindings(),
       onLocation: (snap) => broadcast("bium:pet-location", snap),
+      petId: store.getConfig().petId,
     });
   }
   pet.create();
@@ -436,10 +458,10 @@ function applyTrayPresentation() {
   } catch {
     /* ignore */
   }
-  // Never change title after first paint — width changes hide the item on macOS.
+  // Keep the item icon-only so it fits to the right of a MacBook notch.
   if (process.platform === "darwin") {
     try {
-      tray.setTitle("BIUM");
+      tray.setTitle("");
     } catch {
       /* ignore */
     }
@@ -463,6 +485,8 @@ async function summonPetHome(source = "ui") {
 
 let trayListenersBound = false;
 let trayCreatedOnce = false;
+let trayWatchdog = null;
+let trayMissingChecks = 0;
 
 function destroyTray() {
   if (!tray) return;
@@ -495,29 +519,35 @@ function logTrayBounds(tag) {
 function forceStatusItemVisiblePrefs() {
   if (process.platform !== "darwin") return;
   try {
-    // Near clock (small number). Large values slide under the notch.
-    execFileSync(
-      "defaults",
-      [
-        "write",
-        "com.chic.bium.home",
-        "NSStatusItem Preferred Position Item-0",
-        "-float",
-        "25",
-      ],
-      { stdio: "ignore" }
-    );
-    // Un-hide if macOS previously tucked the item away.
-    for (const key of [
-      "NSStatusItem Visible Item-0",
-      "NSStatusItem Visible Item-1",
-      "NSStatusItem Visible Item-2",
-    ]) {
+    // Dev runs under Electron's bundle ID; packaged builds use BIUM's ID.
+    const domains = app.isPackaged
+      ? ["com.chic.bium.home"]
+      : ["com.github.Electron", "com.chic.bium.home"];
+    for (const domain of domains) {
+      // Near clock (small number). Large values slide under the notch.
       execFileSync(
         "defaults",
-        ["write", "com.chic.bium.home", key, "-bool", "true"],
+        [
+          "write",
+          domain,
+          "NSStatusItem Preferred Position Item-0",
+          "-float",
+          "25",
+        ],
         { stdio: "ignore" }
       );
+      // Un-hide if macOS previously tucked the item away.
+      for (const key of [
+        "NSStatusItem Visible Item-0",
+        "NSStatusItem Visible Item-1",
+        "NSStatusItem Visible Item-2",
+      ]) {
+        execFileSync(
+          "defaults",
+          ["write", domain, key, "-bool", "true"],
+          { stdio: "ignore" }
+        );
+      }
     }
   } catch {
     /* ignore */
@@ -625,7 +655,7 @@ function createTray(opts = {}) {
   trayCreatedOnce = true;
 
   try {
-    tray.setTitle("BIUM");
+    if (process.platform === "darwin") tray.setTitle("");
     tray.setToolTip("BIUM · 클릭해서 열기 · ⌘⇧B");
   } catch {
     /* ignore */
@@ -690,13 +720,44 @@ function registerTrayFallbackShortcut() {
 
 function ensureTrayVisible() {
   hideDockIcon();
-  if (!tray) {
-    createTray();
+  if (!tray || tray.isDestroyed?.()) {
+    createTray({ force: true });
     return;
   }
   // Tooltip/title refresh only — never destroy here.
   applyTrayPresentation();
   logTrayBounds("ensure");
+}
+
+function trayHasUsableBounds() {
+  if (!tray || tray.isDestroyed?.()) return false;
+  try {
+    const bounds = tray.getBounds();
+    return bounds.width > 0 && bounds.height > 0;
+  } catch {
+    return false;
+  }
+}
+
+function startTrayWatchdog() {
+  if (trayWatchdog) clearInterval(trayWatchdog);
+  trayMissingChecks = 0;
+  trayWatchdog = setInterval(() => {
+    if (isQuitting) return;
+    if (trayHasUsableBounds()) {
+      trayMissingChecks = 0;
+      applyTrayPresentation();
+      return;
+    }
+    trayMissingChecks += 1;
+    // Ignore short macOS menu-bar transitions, then recreate the status item.
+    if (trayMissingChecks >= 3) {
+      trayMissingChecks = 0;
+      forceStatusItemVisiblePrefs();
+      createTray({ force: true });
+      logTrayBounds("watchdog-recreate");
+    }
+  }, 5000);
 }
 
 app.whenReady().then(() => {
@@ -706,6 +767,7 @@ app.whenReady().then(() => {
 
   // Create once. No later auto-recreate (that made the icon flicker/hide).
   createTray();
+  startTrayWatchdog();
   createPanelWindow();
   ensureDevices();
 
@@ -770,9 +832,19 @@ app.whenReady().then(() => {
 
   // Dock activate still opens popover (dev without LSUIElement)
   app.on("activate", () => {
+    ensureTrayVisible();
     applyDisplayMode("mini");
     showWindow();
   });
+
+  for (const event of ["resume", "unlock-screen"]) {
+    powerMonitor.on(event, () => {
+      setTimeout(() => {
+        forceStatusItemVisiblePrefs();
+        ensureTrayVisible();
+      }, 300);
+    });
+  }
 });
 
 function osHostname() {
@@ -783,9 +855,16 @@ function osHostname() {
   }
 }
 
-app.on("second-instance", () => showWindow());
+app.on("second-instance", () => {
+  ensureTrayVisible();
+  showWindow();
+});
 app.on("before-quit", () => {
   isQuitting = true;
+  if (trayWatchdog) {
+    clearInterval(trayWatchdog);
+    trayWatchdog = null;
+  }
   try {
     globalShortcut.unregisterAll();
   } catch {
@@ -803,8 +882,11 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.on("pet:ready", () => {
+  pet?.setAppearance(store.getConfig().petId);
   pet?.pushView();
 });
+
+ipcMain.handle("pet:getAppearance", () => store.getConfig().petId);
 
 ipcMain.on("pet:clicked", () => {
   openFindings();
@@ -955,10 +1037,19 @@ async function connectGoogleSpace() {
         "데모 Drive예요. 설정에서 Google Client ID를 넣으면 실제 용량·파일을 불러와요",
     };
   }
+  if (!cfg.googleClientSecret) {
+    return {
+      ok: false,
+      needClientSecret: true,
+      spaceId: "gdrive",
+      error: "Google Desktop OAuth Client Secret도 입력해 주세요",
+    };
+  }
   const google = require("./providers/google");
   // Scope widened to drive (trash) — force re-consent when reconnecting.
   const res = await google.connect();
   indexStore.setDeviceConnected("gdrive", true);
+  let quotaError = null;
   try {
     const about = await google.aboutStorage();
     if (about) {
@@ -967,15 +1058,25 @@ async function connectGoogleSpace() {
       });
       indexStore.setDeviceDemo("gdrive", false);
     }
-  } catch {
-    /* ignore */
+  } catch (err) {
+    const detail = String(err?.message || err || "");
+    quotaError = /has not been used|disabled|accessNotConfigured/i.test(detail)
+      ? "Google Drive API를 사용 설정해야 용량을 표시할 수 있어요"
+      : "Drive 용량을 불러오지 못했어요";
+    indexStore.setDeviceQuota("gdrive", null, null, {
+      demo: false,
+      error: quotaError,
+    });
   }
   publishConnections();
   return {
     ok: true,
     demo: false,
     spaceId: "gdrive",
-    message: "Google Drive를 연결했어요 · MD5로 로컬과 맞춰 볼 수 있어요",
+    message:
+      quotaError ||
+      "Google Drive를 연결했어요 · MD5로 로컬과 맞춰 볼 수 있어요",
+    quotaError,
     ...res,
   };
 }
@@ -992,6 +1093,14 @@ async function connectGmailSpace() {
       spaceId: "gmail",
       error:
         "Gmail 실연결에는 Google Client ID가 필요해요. 설정에서 입력한 뒤 다시 연결해 주세요",
+    };
+  }
+  if (!cfg.googleClientSecret) {
+    return {
+      ok: false,
+      needClientSecret: true,
+      spaceId: "gmail",
+      error: "Gmail 연결에는 Google Desktop OAuth Client Secret도 필요해요",
     };
   }
 
@@ -1066,23 +1175,36 @@ async function connectNaverSpace() {
 
   if (naver.isConnected()) {
     try {
-      await naver.testConnection();
+      const result = await naver.testConnection();
+      const quota = result?.storageQuota;
       indexStore.setDeviceConnected("naver-mail", true);
-      indexStore.setDeviceQuota("naver-mail", QUOTA.usedBytes, QUOTA.totalBytes);
+      indexStore.setDeviceQuota(
+        "naver-mail",
+        quota?.usedBytes ?? null,
+        quota?.totalBytes ?? null,
+        {
+          demo: false,
+          error: quota ? null : "네이버 IMAP에서 용량 정보를 제공하지 않아요",
+        }
+      );
       publishConnections();
       return {
         ok: true,
         demo: false,
         spaceId: "naver-mail",
-        message:
-          "네이버 메일을 연결했어요 · 탐색 시 첨부 MD5로 로컬·Drive와 맞춰 봐요",
+        message: quota
+          ? "네이버 메일을 연결하고 용량을 불러왔어요"
+          : "네이버 메일은 연결됐지만 서버가 용량 정보는 제공하지 않아요",
       };
     } catch (err) {
+      indexStore.setDeviceConnected("naver-mail", false);
       return {
         ok: false,
         error:
-          err.message ||
-          "IMAP 연결 실패 · 앱 비밀번호·IMAP 사용함을 확인해 주세요",
+          /Command failed/i.test(String(err?.message || ""))
+            ? "네이버 IMAP 연결 실패 · IMAP 사용 설정과 앱 비밀번호를 확인해 주세요"
+            : err.message ||
+              "IMAP 연결 실패 · 앱 비밀번호·IMAP 사용함을 확인해 주세요",
         needCredentials: true,
       };
     }
@@ -1217,6 +1339,10 @@ ipcMain.handle("bium:setConfig", (_e, partial) => {
   const pub = store.getPublicConfig();
   if (partial && Object.prototype.hasOwnProperty.call(partial, "theme")) {
     applyWindowBackground(pub.theme || next.theme);
+    broadcast("bium:config", pub);
+  }
+  if (partial && Object.prototype.hasOwnProperty.call(partial, "petId")) {
+    ensurePet().setAppearance(next.petId);
     broadcast("bium:config", pub);
   }
   return pub;

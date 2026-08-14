@@ -39,6 +39,7 @@ async function ensureAccessToken() {
     tokenUrl: TOKEN,
     body: {
       client_id: cfg.googleClientId,
+      client_secret: cfg.googleClientSecret,
       grant_type: "refresh_token",
       refresh_token: token.refresh_token,
     },
@@ -54,6 +55,9 @@ async function ensureAccessToken() {
 
 async function connect() {
   const cfg = store.getConfig();
+  if (!cfg.googleClientSecret) {
+    throw new Error("Google Desktop OAuth Client Secret이 필요합니다.");
+  }
   const token = await runOAuthCodeFlow({
     authBaseUrl: AUTH,
     tokenUrl: TOKEN,
@@ -63,6 +67,9 @@ async function connect() {
       access_type: "offline",
       prompt: "consent",
       include_granted_scopes: "true",
+    },
+    extraTokenParams: {
+      client_secret: cfg.googleClientSecret,
     },
   });
   store.saveToken("google", token);
@@ -125,6 +132,9 @@ function friendlyGmailError(err) {
   }
   if (/Client ID|client_id/i.test(msg)) {
     return "설정에서 Google Client ID를 먼저 넣어 주세요";
+  }
+  if (/client_secret|Client Secret/i.test(msg)) {
+    return "설정에서 데스크톱 OAuth Client Secret도 입력해 주세요";
   }
   return msg || "Gmail에 연결하지 못했어요";
 }
@@ -321,18 +331,14 @@ async function trashGmailMessage(messageId) {
 }
 
 async function aboutStorage() {
-  try {
-    const data = await gfetch(
-      "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user"
-    );
-    return {
-      email: data.user?.emailAddress,
-      usage: Number(data.storageQuota?.usage || 0),
-      limit: Number(data.storageQuota?.limit || 0),
-    };
-  } catch {
-    return null;
-  }
+  const data = await gfetch(
+    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user"
+  );
+  return {
+    email: data.user?.emailAddress,
+    usage: Number(data.storageQuota?.usage || 0),
+    limit: Number(data.storageQuota?.limit || 0),
+  };
 }
 
 module.exports = {

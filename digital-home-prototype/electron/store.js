@@ -54,6 +54,19 @@ function resolveGoogleClientId(raw = readRaw()) {
   );
 }
 
+function resolveGoogleClientSecret(raw = readRaw()) {
+  try {
+    return (
+      decrypt(raw.googleClientSecret) ||
+      process.env.BIUM_GOOGLE_CLIENT_SECRET ||
+      process.env.DIGITAL_DIET_GOOGLE_CLIENT_SECRET ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
 function getConfig() {
   const raw = readRaw();
   const naver = (() => {
@@ -64,10 +77,13 @@ function getConfig() {
     }
   })();
   const googleClientId = resolveGoogleClientId(raw);
+  const googleClientSecret = resolveGoogleClientSecret(raw);
   return {
     googleClientId,
     hasGoogleClientId: Boolean(googleClientId),
     googleClientIdHint: maskClientId(googleClientId),
+    googleClientSecret,
+    hasGoogleClientSecret: Boolean(googleClientSecret),
     microsoftClientId:
       raw.microsoftClientId ||
       process.env.BIUM_MICROSOFT_CLIENT_ID ||
@@ -82,6 +98,8 @@ function getConfig() {
     demoNaver: raw.demoNaver !== false,
     /** Show desktop pet wandering on the Mac screen */
     desktopPet: raw.desktopPet !== false,
+    /** Shared appearance for Mini, Home, and transparent desktop pet */
+    petId: raw.petId === "neko" ? "neko" : "retriever",
     /** Mini UI theme: cozy | noir */
     theme: raw.theme === "noir" ? "noir" : "cozy",
   };
@@ -93,13 +111,21 @@ function getPublicConfig() {
   return {
     ...cfg,
     googleClientId: "",
+    googleClientSecret: "",
     microsoftClientId: "",
   };
 }
 
 function setConfig(partial) {
   const raw = readRaw();
-  Object.assign(raw, partial);
+  const next = { ...(partial || {}) };
+  if (Object.prototype.hasOwnProperty.call(next, "googleClientSecret")) {
+    raw.googleClientSecret = next.googleClientSecret
+      ? encrypt(String(next.googleClientSecret))
+      : null;
+    delete next.googleClientSecret;
+  }
+  Object.assign(raw, next);
   writeRaw(raw);
   return getConfig();
 }

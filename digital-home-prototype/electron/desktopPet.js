@@ -39,6 +39,7 @@ class DesktopPetController {
     this._dragging = false;
     this._dragOff = { x: 0, y: 0 };
     this._summoning = false;
+    this.petId = opts.petId === "neko" ? "neko" : "retriever";
   }
 
   _publishLocation(location, exploring = false) {
@@ -139,6 +140,14 @@ class DesktopPetController {
     if (!this.win) this.create();
     if (this.visible) this.win?.showInactive();
     else this.win?.hide();
+  }
+
+  setAppearance(petId) {
+    this.petId = petId === "neko" ? "neko" : "retriever";
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send("pet:appearance", this.petId);
+    }
+    return this.petId;
   }
 
   destroy() {
