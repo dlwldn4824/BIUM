@@ -1,0 +1,35 @@
+flowchart LR
+  INPUT["PC · 공유저장소<br/>클라우드 · 메일"]
+  ORCH["통합 탐색<br/>유사 후보 우선"]
+
+  subgraph DETECT["로컬 AI 탐지"]
+    direction TB
+    PHOTO["1 · 유사 사진<br/>Czkawka image<br/>Gradient pHash"]
+    DOC["2 · 유사 문서<br/>Tika → MiniLM SBERT<br/>cosine ≥ 80%"]
+    EXACT["3 · Exact 확정<br/>크기 버킷 → BLAKE3<br/>MD5 · SHA-256"]
+  end
+
+  HUB["4 · Findings Hub<br/>후보와 판단 근거"]
+  USER["사용자 승인<br/>보존본 선택"]
+  ACTION["복구 가능한 정리<br/>Local · Drive trash"]
+  PRIVACY["본문·임베딩<br/>외부 전송 없음"]
+
+  INPUT --> ORCH
+  ORCH --> PHOTO
+  ORCH --> DOC
+  ORCH --> EXACT
+  PHOTO --> HUB
+  DOC --> HUB
+  EXACT --> HUB
+  HUB --> USER --> ACTION
+  PRIVACY -.-> DOC
+  PRIVACY -.-> HUB
+
+  classDef core fill:#EAF2F8,stroke:#315D78,color:#183746,stroke-width:2px
+  classDef local fill:#FFF4E5,stroke:#C47B2B,color:#6F4317
+  classDef safe fill:#E8F5EF,stroke:#168C73,color:#0D604E
+  classDef note fill:#F2F2F2,stroke:#7A7A7A,color:#444444,stroke-dasharray:5 5
+  class ORCH,HUB core
+  class PHOTO,DOC,EXACT local
+  class USER,ACTION safe
+  class PRIVACY note

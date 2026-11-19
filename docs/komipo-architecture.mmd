@@ -1,0 +1,43 @@
+flowchart LR
+  subgraph SOURCE["데이터 위치"]
+    direction TB
+    MAC["Mac 로컬<br/>실구현"]
+    LAN["LAN Peer<br/>UDP + fingerprint API"]
+    GOOGLE["Drive · Gmail<br/>OAuth 2.0 PKCE"]
+    NAVER["Naver Mail<br/>IMAP TLS 993"]
+    ONEDRIVE["OneDrive<br/>연결 자리만 존재"]
+  end
+
+  subgraph CORE["BIUM 로컬 코어"]
+    direction TB
+    ELECTRON["Electron<br/>메뉴바 Mini · Desktop Pet"]
+    INDEX["통합 fingerprint index<br/>contentKey 그룹화"]
+    ENGINE["Czkawka · Tika · SBERT<br/>Node crypto fallback"]
+    ELECTRON --> INDEX --> ENGINE
+  end
+
+  subgraph RESULT["사용자 승인과 운영"]
+    direction TB
+    FIND["Findings Hub<br/>유사 사진 · 문서 · Exact"]
+    KEEP["남길 위치 다중 선택"]
+    TRASH["복구 가능한 정리<br/>로컬 Trash · Drive trash"]
+    KPI["조직 KPI 대시보드<br/>후보 · 승인 · 확보용량"]
+    FIND --> KEEP --> TRASH
+    FIND --> KPI
+  end
+
+  MAC --> INDEX
+  LAN --> INDEX
+  GOOGLE --> INDEX
+  NAVER --> INDEX
+  ONEDRIVE -. "향후 연동" .-> INDEX
+  ENGINE --> FIND
+
+  classDef implemented fill:#E8F5EF,stroke:#168C73,color:#0D604E
+  classDef cloud fill:#EAF1FF,stroke:#4F6FA8,color:#29466F
+  classDef ui fill:#FFF4E5,stroke:#C47B2B,color:#6F4317
+  classDef future fill:#F1F1F1,stroke:#999999,color:#666666,stroke-dasharray:5 5
+  class MAC,LAN,NAVER,INDEX,ENGINE,FIND,KEEP,TRASH implemented
+  class GOOGLE cloud
+  class ELECTRON,KPI ui
+  class ONEDRIVE future
